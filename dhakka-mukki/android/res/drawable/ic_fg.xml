@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two beans mid-dhakka. 108dp canvas, art kept inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#E8177D" android:fillAlpha="0.35" android:pathData="M54,22a32,32 0 1,0 0.1,0z"/>
+    <path android:fillColor="#000000" android:fillAlpha="0.3" android:pathData="M28,80a26,4 0 1,0 52,0a26,4 0 1,0 -52,0z"/>
+    <group android:rotation="-14" android:pivotX="42" android:pivotY="60">
+        <path android:fillColor="#A81E1E" android:pathData="M42,42a14,17.5 0 1,0 0.1,0z"/>
+        <path android:fillColor="#FF4B4B" android:pathData="M42,43.5a12.5,16 0 1,0 0.1,0z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M37.5,51.5a3.4,4.2 0 1,0 0.1,0zM46.5,51.5a3.4,4.2 0 1,0 0.1,0z"/>
+        <path android:fillColor="#1C0B33" android:pathData="M39,53.5a1.8,1.8 0 1,0 0.1,0zM48,53.5a1.8,1.8 0 1,0 0.1,0zM42.6,61.5a2.6,2.2 0 1,0 0.1,0z"/>
+    </group>
+    <group android:rotation="18" android:pivotX="68" android:pivotY="58">
+        <path android:fillColor="#06716A" android:pathData="M68,40.5a13.5,17 0 1,0 0.1,0z"/>
+        <path android:fillColor="#14C4B4" android:pathData="M68,42a12,15.5 0 1,0 0.1,0z"/>
+        <path android:strokeColor="#1C0B33" android:strokeWidth="2" android:pathData="M60,51a3,3 0 1,0 6,0a3,3 0 1,0 -6,0M69,51a3,3 0 1,0 6,0a3,3 0 1,0 -6,0M62,61q5,3 10,0"/>
+    </group>
+    <path android:fillColor="#FFC21A" android:pathData="M52,34l3,-7 2.5,6 6,-3 -3,6 6,2.5 -7,2.5z"/>
+</vector>

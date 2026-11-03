@@ -1,0 +1,5 @@
+build/out/
+build/.tools/
+build/.keystore/
+.shots/
+node_modules/
