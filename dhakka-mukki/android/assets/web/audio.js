@@ -69,10 +69,54 @@ const FX = {
   gong: t => { [1, 2.76, 5.4].forEach((m, i) => osc('sine', 110 * m, 0, t, 2.6 - i * 0.6, 0.18 / (i + 1), null, 0.01)); },
   cheer: t => { noise(t, 1.3, 0.12, 'bandpass', 1500, 0.6); for (let i = 0; i < 8; i++) osc('triangle', midi(72 + SCALE[i % 5] + 12 * (i > 4)), 0, t + i * 0.08, 0.2, 0.05); }
 };
+/* ---------- recorded samples (rendered with the GeneralUser GS soundfont) ---------- */
+const SAMPLE_FX = ['jump', 'land', 'dash', 'hit', 'boing', 'fall', 'qualify', 'out', 'peel', 'slip', 'quake', 'ulta', 'crack', 'plop', 'grab', 'drop', 'beep', 'go', 'emote', 'vote', 'roll', 'gong', 'cheer', 'wipe', 'tick', 'join'];
+const buffers = {}; let samplesLoading = false;
+async function loadSamples() {
+  if (samplesLoading || !init()) return; samplesLoading = true;
+  await Promise.all(SAMPLE_FX.map(async n => {
+    try { const r = await fetch('/assets/audio/fx_' + n + '.ogg'); if (!r.ok) return; buffers[n] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch (_) {}
+  }));
+}
+function playSample(name, t) {
+  const b = buffers[name]; if (!b) return false;
+  const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = b;
+  src.playbackRate.value = 0.94 + Math.random() * 0.12; g.gain.value = name === 'land' || name === 'jump' ? 0.55 : 0.85;
+  src.connect(g); g.connect(fxBus); src.start(t); return true;
+}
 function play(name, throttle = 0.04) {
-  if (!fxOn || !ctx || ctx.state !== 'running' || !FX[name]) return;
+  if (!fxOn || !ctx || ctx.state !== 'running') return;
   const t = ctx.currentTime; if (last[name] && t - last[name] < throttle) return; last[name] = t;
-  try { FX[name](t + 0.005); } catch (_) {}
+  try { if (!playSample(name, t + 0.005) && FX[name]) FX[name](t + 0.005); } catch (_) {}
+}
+
+/* ---------- composed music: two streamed decks crossfading, one track per phase and map ---------- */
+const TRACK_FOR = { lobby: 'lobby', intro: null, panchayat: 'panchayat', reveal: '', scores: 'scores', finished: 'victory' };
+const BY_KIND = { race: 'race', survive: 'survive', crown: 'final', lobby: 'lobby' };
+const decks = []; let deckIdx = 0, current = '', mapKind = 'lobby', trackMode = true;
+function deck() {
+  if (!init()) return null;
+  if (decks.length < 2) for (let i = 0; i < 2; i++) {
+    const el = new Audio(); el.loop = true; el.preload = 'auto'; el.crossOrigin = 'anonymous';
+    const src = ctx.createMediaElementSource(el), g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(musicBus);
+    decks.push({ el, g, name: '' });
+  }
+  return decks;
+}
+function trackFor(mood) {
+  if (mood === 'play' || mood === 'countdown' || mood === 'roundEnd') return BY_KIND[mapKind] || 'race';
+  const t = TRACK_FOR[mood]; return t === undefined ? 'lobby' : t;
+}
+function switchTrack(name) {
+  if (!musicOn || !trackMode || !deck()) return;
+  if (name === null) { decks.forEach(d => d.g.gain.setTargetAtTime(d.name === current ? 0.35 : 0, ctx.currentTime, 0.4)); return; }
+  if (name === current) { decks.forEach(d => d.g.gain.setTargetAtTime(d.name === current ? 1 : 0, ctx.currentTime, 0.5)); return; }
+  current = name;
+  const from = decks[deckIdx], to = decks[deckIdx = 1 - deckIdx], now = ctx.currentTime;
+  from.g.gain.setTargetAtTime(0, now, 0.6); setTimeout(() => { if (from.name !== current) from.el.pause(); }, 2500);
+  if (!name) return;
+  to.name = name; to.el.src = '/assets/audio/music_' + name + '.ogg'; to.el.currentTime = 0;
+  to.el.play().catch(() => {}); to.g.gain.cancelScheduledValues(now); to.g.gain.setValueAtTime(0, now); to.g.gain.setTargetAtTime(1, now + 0.05, 0.5);
 }
 
 /* ---------- music ---------- */
@@ -116,15 +160,23 @@ function schedule() {
     nextBeat += spb; beat++;
   }
 }
-function setMood(name) { if (!MOODS[name] || name === mood) return; const hadDrone = MOODS[mood] && MOODS[mood].drone; mood = name; if (musicOn && !!MOODS[name].drone !== !!hadDrone) drone(!!MOODS[name].drone); }
+function setMood(name, kind) {
+  if (kind) mapKind = kind;
+  if (trackMode && ctx) { switchTrack(trackFor(name)); mood = name; return; }
+  if (!MOODS[name] || name === mood) return; const hadDrone = MOODS[mood] && MOODS[mood].drone; mood = name; if (musicOn && !!MOODS[name].drone !== !!hadDrone) drone(!!MOODS[name].drone);
+}
 async function setMusic(on) {
   if (on && !init()) return false;
   musicOn = on;
-  if (on) { try { await ctx.resume(); } catch (_) {} nextBeat = ctx.currentTime + 0.1; if (!timer) timer = setInterval(schedule, 50); drone(!!(MOODS[mood] || {}).drone); }
-  else { if (timer) { clearInterval(timer); timer = null; } drone(false); }
+  if (on) {
+    try { await ctx.resume(); } catch (_) {}
+    loadSamples();
+    if (trackMode) { current = ''; switchTrack(trackFor(mood)); }
+    else { nextBeat = ctx.currentTime + 0.1; if (!timer) timer = setInterval(schedule, 50); drone(!!(MOODS[mood] || {}).drone); }
+  } else { if (timer) { clearInterval(timer); timer = null; } drone(false); decks.forEach(d => { d.g.gain.setTargetAtTime(0, ctx.currentTime, 0.2); setTimeout(() => d.el.pause(), 600); }); current = ''; }
   return ctx && ctx.state === 'running';
 }
-async function unlock() { if (!init()) return false; try { await ctx.resume(); } catch (_) {} return ctx.state === 'running'; }
+async function unlock() { if (!init()) return false; try { await ctx.resume(); } catch (_) {} loadSamples(); return ctx.state === 'running'; }
 document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else if (musicOn || fxOn) ctx.resume(); });
 
 window.DAudio = { play, setMood, setMusic, unlock, setFx: v => { fxOn = v; }, get running() { return !!ctx && ctx.state === 'running'; }, get music() { return musicOn; } };

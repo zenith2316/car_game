@@ -7,8 +7,8 @@ const { Engine } = require('../android/assets/web/engine.js');
 
 const PORT = Number(process.argv[2] || process.env.PORT || 8793);
 const WEB = path.join(__dirname, '..', 'android', 'assets', 'web');
-const TYPES = { '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.html': 'text/html; charset=utf-8' };
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+const TYPES = { '.glb': 'model/gltf-binary', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ogg': 'audio/ogg', '.json': 'application/json', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.html': 'text/html; charset=utf-8' };
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
 
 const engine = new Engine();
 const sockets = new Map(); let nextId = 1;
@@ -26,11 +26,12 @@ const server = http.createServer((req, res) => {
   let file;
   if (url === '/' ) file = 'index.html';
   else if (url === '/display') file = 'display.html';
-  else if (/^\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\.(js|css|svg|png|woff2|txt)$/.test(url) && !url.includes('..')) file = url.slice(1);
+  else if (/^\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\.(js|css|svg|png|woff2|txt|glb|jpg|webp|ogg|json)$/.test(url) && !url.includes('..')) file = url.slice(1);
   if (!file) { res.writeHead(404, headers('text/plain', 9)); return res.end('Not found'); }
   fs.readFile(path.join(WEB, file), (err, data) => {
     if (err) { res.writeHead(404, headers('text/plain', 9)); return res.end('Not found'); }
-    res.writeHead(200, headers(TYPES[path.extname(file)] || 'application/octet-stream', data.length)); res.end(data);
+    const h = headers(TYPES[path.extname(file)] || 'application/octet-stream', data.length); if (file.startsWith('assets/')) h['Cache-Control'] = 'public, max-age=3600';
+    res.writeHead(200, h); res.end(data);
   });
 });
 

@@ -2,8 +2,10 @@
    display.js owns networking, interpolation, HUD and menus. This module only draws, and exposes window.DRender3D.
    Falls back to the 2D canvas renderer when WebGL is missing or ?gfx=2d is set. */
 import * as THREE from './vendor/three.js';
-import { makeBean, poseBean, portrait, lightRig, COLORS } from './bean3d.js';
+import { makeBean, poseBean, portrait, lightRig, COLORS, useCharacterAsset } from './bean3d.js';
 import { buildWorld, updateWorld, skyTexture, THEMES } from './world3d.js';
+import { buildWorldHQ } from './worldhq.js';
+import A, { loadAll } from './assets.js';
 
 const params = new URLSearchParams(location.search);
 const TAU = Math.PI * 2, BIG = 1.25;
@@ -46,11 +48,26 @@ function start() {
   const cam = { tx: 800, ty: 0, tz: 450, d: 2000, yaw: 0, el: 0.92, shake: 0, punch: 0, fov: 30, init: false };
 
   function dispose(obj) { obj.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); }
+  let hq = false, lastDhakka = null, ownBackground = null;
+  const envCache = new Map(), pmrem = new THREE.PMREMGenerator(renderer);
+  function envFor(tex) { if (!envCache.has(tex)) envCache.set(tex, pmrem.fromEquirectangular(tex).texture); return envCache.get(tex); }
   function setMap(m, Dhakka) {
-    if (world) { scene.remove(world.root); dispose(world.root); }
+    lastDhakka = Dhakka || lastDhakka; Dhakka = lastDhakka;
+    if (world) { scene.remove(world.root); if (!world.hq) dispose(world.root); }
+    if (hq) {
+      map = m; mapId = m.id; world = buildWorldHQ(m, Dhakka); world.hq = true; scene.add(world.root);
+      if (ownBackground) { ownBackground.dispose(); ownBackground = null; }
+      scene.background = world.sky || skyTexture(world.theme); scene.backgroundIntensity = 1.0;
+      if (world.sky) { scene.environment = envFor(world.sky); scene.environmentIntensity = 0.85; L.hemi.intensity = 0.55; }
+      scene.fog = new THREE.Fog(world.theme.fog, 3600, 9000);
+      frameMap(m); return;
+    }
     map = m; mapId = m.id; world = buildWorld(m, Dhakka); scene.add(world.root);
-    const th = world.theme; if (scene.background && scene.background.dispose) scene.background.dispose();
-    scene.background = skyTexture(th); scene.fog = new THREE.Fog(th.fog, 3200, 7600);
+    const th = world.theme; if (ownBackground) ownBackground.dispose();
+    ownBackground = scene.background = skyTexture(th); scene.fog = new THREE.Fog(th.fog, 3200, 7600);
+    frameMap(m);
+  }
+  function frameMap(m) {
     // overview framing from the map's floor bounds
     let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
     const grow = (a, b, c, d) => { x0 = Math.min(x0, a); x1 = Math.max(x1, b); z0 = Math.min(z0, c); z1 = Math.max(z1, d); };
@@ -204,13 +221,14 @@ function start() {
       b.visible = !hide && !((fl & 32) && Math.floor(T * 12) % 2);
       if (hide) continue;
       const falling = !!(fl & 2);
-      poseBean(b, { x, y, z: falling ? z * 1.4 : z, vx, vy, face: f / 100, stun: stun > 0, dash: fl & 1, slip: fl & 64, falling, dt, big: BIG, scale: falling ? Math.max(0.2, 1 + z / 700) : 1 });
-      if (fl & 8) { b.userData.core.position.y = Math.abs(Math.sin(T * 6 + c)) * 14; b.userData.arms.forEach((a, i) => { a.rotation.x = -2.6 + Math.sin(T * 10 + i * 3) * 0.4; }); }
+      const em = o.emotes && o.emotes.get(c);
+      poseBean(b, { x, y, z: falling ? z * 1.4 : z, vx, vy, face: f / 100, stun: stun > 0, dash: fl & 1, slip: fl & 64, falling, dt, big: BIG, scale: falling ? Math.max(0.2, 1 + z / 700) : 1, celebrate: !!(fl & 8), wave: !!(em && em.until > o.now) });
+      if ((fl & 8) && !b.userData.glb) { b.userData.core.position.y = Math.abs(Math.sin(T * 6 + c)) * 14; b.userData.arms.forEach((a, i) => { a.rotation.x = -2.6 + Math.sin(T * 10 + i * 3) * 0.4; }); }
       if (fl & 16 && heldCrown) { heldCrown.visible = true; heldCrown.position.set(x, z + 86 + Math.sin(T * 5) * 2, y); heldCrown.rotation.y = T * 2; }
     }
     if (heldCrown && !(snap.p || []).some(p => p[8] & 16)) heldCrown.visible = false;
     for (const [c, b] of beans) if (!seen.has(c)) b.visible = false;
-    if (fin) fin.winners.forEach(b => { const bs = b.userData.base, cyc = (T * 1.3 + bs.rank * 0.4) % 1, hop = bs.rank === 0 ? Math.sin(cyc * Math.PI) * 34 : Math.sin(cyc * Math.PI) * 16; poseBean(b, { x: bs.x, y: bs.y, z: bs.z + hop, face: Math.PI / 2, dt, big: 1.6 }); b.userData.arms.forEach((a, i) => { a.rotation.x = -2.7 + Math.sin(T * 9 + i * 2) * 0.35; }); });
+    if (fin) fin.winners.forEach(b => { const bs = b.userData.base, cyc = (T * 1.3 + bs.rank * 0.4) % 1, hop = bs.rank === 0 ? Math.sin(cyc * Math.PI) * 34 : Math.sin(cyc * Math.PI) * 16; if (b.userData.glb) { poseBean(b, { x: bs.x, y: bs.y, z: bs.z, face: Math.PI / 2 + Math.sin(T * 0.8 + bs.rank) * 0.3, dt, big: 1.6, dance: bs.rank === 0, celebrate: bs.rank > 0 }); return; } poseBean(b, { x: bs.x, y: bs.y, z: bs.z + hop, face: Math.PI / 2, dt, big: 1.6 }); b.userData.arms.forEach((a, i) => { a.rotation.x = -2.7 + Math.sin(T * 9 + i * 2) * 0.35; }); });
     if (fin && Math.random() < dt * 3) burst(600 + Math.random() * 400, 420 + Math.random() * 120, 220, 18, 300);
     ultaFlash = Math.max(0, ultaFlash - dt * 1.5);
     renderer.toneMappingExposure = 1.08 + ultaFlash * 0.25;
@@ -223,7 +241,20 @@ function start() {
   function scaleAt(x, y, z) { const a = project(x, y, z), b = project(x, y, z + 60); return Math.abs(a.y - b.y) / 60; }
 
   applyQuality();
-  window.DRender3D = { setMap, render, fx, project, scaleAt, portrait, get quality() { return quality; }, setQuality(qv) { quality = qv; applyQuality(); }, get mapId() { return mapId; } };
+  // load the Blender-built asset library, then rebuild the current map and characters in high quality
+  const loading = document.getElementById('loading'), bar = loading && loading.querySelector('b'), pct = loading && loading.querySelector('span');
+  if (loading && !params.has('nohq')) loading.hidden = false;
+  if (!params.has('nohq')) loadAll(p => { if (bar) bar.style.transform = `scaleX(${p})`; if (pct) pct.textContent = Math.round(p * 100) + '%'; }, quality).then(() => {
+    if (A.ready) {
+      useCharacterAsset(A.models.bean); hq = true;
+      for (const [c, b] of beans) scene.remove(b); beans.clear();
+      if (podium) { scene.remove(podium.g); podium = null; }
+      if (map) setMap(map, lastDhakka);
+    }
+    if (loading) { loading.classList.add('done'); setTimeout(() => { loading.hidden = true; }, 700); }
+    document.dispatchEvent(new CustomEvent('dm3d-assets', { detail: { ready: A.ready } }));
+  });
+  window.DRender3D = { setMap, render, fx, project, scaleAt, portrait, get hq() { return hq; }, get quality() { return quality; }, setQuality(qv) { quality = qv; applyQuality(); }, get mapId() { return mapId; } };
   document.dispatchEvent(new CustomEvent('dm3d-ready'));
 }
 

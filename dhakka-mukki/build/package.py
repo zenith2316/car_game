@@ -20,5 +20,5 @@ with zipfile.ZipFile(base) as zin, zipfile.ZipFile(out, 'w') as zo:
         for f in sorted(files):
             p = os.path.join(root, f)
             rel = 'assets/' + os.path.relpath(p, assets).replace(os.sep, '/')
-            add(rel, open(p, 'rb').read(), f.endswith('.woff2'))
+            add(rel, open(p, 'rb').read(), f.endswith(('.woff2', '.jpg', '.webp', '.ogg', '.glb', '.png')))
 print('packaged', out)

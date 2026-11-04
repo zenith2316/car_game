@@ -44,7 +44,7 @@ Host Android device                                   Player phones / TV browser
 - `android/assets/web/engine.js` is the single authoritative engine: rules, 60 Hz fixed-step physics, maps, bots and scoring. It is pure JavaScript with no wall-clock time, so the same file runs in the Android engine WebView, the Node dev host and the tests. The display loads it too, for map geometry.
 - The service ticks the engine every 33 ms with the socket events that arrived since the last tick. The engine replies with lines of `target<TAB>json` (a client id, `*`, `D` for displays, `P` for players). The display gets about 600 byte snapshots at 30 Hz and interpolates 70 ms behind for smooth 60 fps. Phones get only their own private state.
 - What carries over from IKKP: the foreground hosting service with wake and Wi-Fi locks, the isolated headless engine WebView, Host and Origin header checks, host-token admin rights, the Connect dialog (same Wi-Fi or local-only hotspot, with ZXing QR codes), a `/display` URL for a TV, seats that survive phone reconnects, no AndroidX, minSdk 26 and targetSdk 36. From DesiQuip: the Baloo 2 and Shrikhand fonts (SIL OFL) and the desi tone.
-- What's new: a WebSocket channel instead of HTTP polling (IKKP's 350 requests per 10 s cap can't carry joystick input), a 3D renderer, and Web Audio music and effects. The APK is about 650 KB.
+- What's new: a WebSocket channel instead of HTTP polling (IKKP's 350 requests per 10 s cap can't carry joystick input), a 3D renderer, and path-traced art, PBR textures and soundfont-rendered music. The APK is about 110 MB (see below).
 
 ## Graphics (version 1.1)
 
@@ -55,6 +55,19 @@ The big screen renders in 3D with three.js 0.169 (MIT, bundled in `web/vendor/`,
 - `display3d.js`: soft shadows, an environment map for the glossy look, a director camera (intro flyover, follows the pack, zooms in on a qualifier, orbits during menus), instanced 3D particles, and a dancing 3D podium.
 - Quality is picked automatically and drops to a lighter mode if the frame rate falls. `/display?gfx=low`, `?gfx=high` or `?gfx=2d` force a mode. Without WebGL, the original 2D canvas renderer is used.
 - The menus use a bright candy party-show style (cream panels, thick outlines, press-down buttons, stripe wipes between phases). Phones buzz and flash their screen edge when you're shoved, slip or fall.
+
+## Assets (version 1.2)
+
+Version 1.2 ships about 100 MB of original art and audio. Every file is generated from source in `assets-src/`, so it can be rebuilt or tweaked. Nothing is copied from another game. The style is the soft toy look of party brawlers, with desi props.
+
+- Character (`blender/characters.py`, Blender 4.2 Python API): a rigged, skinned plush bean with baked 2K normal and AO maps, stitched seams, a morphing mouth, 9 looks plus a Rustam mask and a king's crown, and 13 animations (idle, run, jump, air, flail, dive, stun, tumble, slip, land, celebrate, dance, wave). It also renders 100 Cycles portraits (10 colours by 10 looks) for menus and phones.
+- Props (`blender/props.py`): 21 models with baked PBR materials, including the chai tapri, kulhad and dhol bumpers, belan sweepers, the ceiling fan, thalis, papads, floating rock islands, clouds, lanterns, diyas, kites, garlands and a Ferris wheel.
+- Textures (`textures.py`): tileable 2K foam, terracotta, marble, gold, wood and conveyor-belt sets (albedo, normal, roughness and metal), plus rangoli floor decals.
+- Skies (`blender/skies.py`): five 4K equirectangular panoramas, one per map, with cloud fields, distant temples and a fairground. They also light the scene as an environment map.
+- Menu art (`blender/uiart.py`): the 3D logo, role cards, trap and button icons, map title cards and the loading splash.
+- Music and sound (`audio/compose.mjs`): seven looping tracks built on Indian scales with dhol grooves and meend bends, rendered through the GeneralUser GS soundfont, plus 26 sound effects. Effects fall back to the synth if a file is missing.
+
+The display loads the asset pack in the background behind a loading screen and swaps the procedural stand-ins for the real models when ready. `assets.js` lists every file. The APK stores already-compressed media uncompressed so it can be read straight from the package.
 
 ## Run it
 
@@ -74,4 +87,5 @@ npm run apk            # builds and signs build/out/DhakkaMukki.apk
 
 - Tested on desktop JVM, Chromium and emulated phones, with software WebGL for the 3D path. Not yet run on a physical Android device, so 3D frame rate on a real host tablet or phone is unmeasured (the renderer falls back to a lighter mode on its own).
 - If the host app's process is killed, the room is gone (no mid-match checkpoint, unlike IKKP's turn-based save).
+- Loading the asset pack on a low-end host device may take several seconds, and GPU memory use with all textures loaded is unmeasured on real hardware.
 - English UI with Hinglish flavour. There is no full Hinglish toggle yet (IKKP has one).

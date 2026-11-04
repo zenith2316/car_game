@@ -189,3 +189,16 @@ body.gl .step b{margin-top:0;font-size:calc(30 * var(--u))}
 .sound-btn{position:fixed;right:12px;bottom:12px;background:var(--paper);color:var(--plum);border:3px solid var(--plum);border-radius:999px;padding:8px 16px;font-size:15px;min-height:40px;z-index:5;box-shadow:0 4px 0 var(--plum);font-weight:800}
 .sound-btn[aria-pressed="true"]{background:var(--mor);color:#FFFFFF}
 .conn{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:var(--bad);color:#fff;padding:8px 16px;border-radius:999px;font-size:16px;z-index:9;border:3px solid var(--plum)}
+
+/* loading screen: Cycles splash render with the 3D logo and a candy progress bar */
+.loading{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:14px;padding-bottom:7vh;background:#6EC3FF url('/assets/ui/splash.jpg') center/cover no-repeat;transition:opacity .6s}
+.loading.done{opacity:0}
+.loading .ld-logo{position:absolute;top:5vh;left:50%;transform:translateX(-50%) rotate(-3deg);width:min(62vw,880px);filter:drop-shadow(0 10px 0 rgba(42,15,74,.35));animation:wobble 4s ease-in-out infinite}
+.loading .ld-bar{width:min(60vw,720px);height:30px;border-radius:999px;background:#FFF8EC;border:5px solid #2A0F4A;box-shadow:0 8px 0 #2A0F4A;overflow:hidden}
+.loading .ld-bar b{display:block;height:100%;transform:scaleX(0);transform-origin:left;transition:transform .25s;background:repeating-linear-gradient(-45deg,#FFC21A 0 18px,#FF9A00 18px 36px)}
+.loading span{font-family:var(--display);font-size:34px;color:#fff;text-shadow:3px 0 0 #2A0F4A,-3px 0 0 #2A0F4A,0 3px 0 #2A0F4A,0 -3px 0 #2A0F4A,0 7px 0 #E8177D}
+.loading p{font-size:20px;font-weight:800;color:#2A0F4A;background:#FFF8EC;border:3px solid #2A0F4A;border-radius:999px;padding:4px 18px}
+.brand .logo img{display:block;width:calc(400 * var(--u));height:auto;filter:drop-shadow(0 calc(8 * var(--u)) 0 rgba(42,15,74,.3))}
+.brand .logo{animation:wobble 4s ease-in-out infinite}
+.intro .cardart{height:calc(250 * var(--u));margin:calc(-30 * var(--u)) calc(-50 * var(--u)) calc(10 * var(--u));background-size:cover;background-position:center;border-bottom:var(--line)}
+body.gl .intro{width:calc(900 * var(--u));margin-left:calc(-450 * var(--u))}

@@ -103,9 +103,9 @@ function pickScreen() {
     <div class="row"><button class="cta" data-act="savelook">Save</button><button class="ghost" data-act="cancelpick">Cancel</button></div></section>`;
 }
 const roleCard = me => {
-  if (me.role === 'saboteur') return `<div class="role sab"><small>Your secret role</small><h2>Chupa Rustam</h2><p>Make others fall without getting caught. Every fall you cause is a point, if the Panchayat does not catch you.</p><ul><li><b>Kela</b> drops a banana peel behind you</li><li><b>Bhookamp</b> shoves everyone near you</li><li><b>${esc((me.traps || [])[2] || 'Ulta')}</b> ${me.map === 'survive' && (me.traps || [])[2] === 'Crack' ? 'cracks the papads around you' : 'reverses and speeds up the course'}</li></ul>${me.partners.length ? `<p class="partner">Your partner: <b>${me.partners.map(esc).join(', ')}</b></p>` : ''}<p class="warn">Act normal. Run the course too.</p></div>`;
-  if (me.role === 'king') return '<div class="role king"><small>Final round</small><h2>Dhakka King</h2><p>No saboteurs. Grab the mukut and hold it. Every dhakka knocks it loose.</p></div>';
-  return '<div class="role racer"><small>Your secret role</small><h2>Racer</h2><p>Qualify for points. Somebody is sabotaging. Watch who drops peels, who shoves, who is always nearby when people fall.</p></div>';
+  if (me.role === 'saboteur') return `<div class="role sab"><img class="role-art" src="/assets/ui/role_rustam.webp" alt=""><small>Your secret role</small><h2>Chupa Rustam</h2><p>Make others fall without getting caught. Every fall you cause is a point, if the Panchayat does not catch you.</p><ul><li><b>Kela</b> drops a banana peel behind you</li><li><b>Bhookamp</b> shoves everyone near you</li><li><b>${esc((me.traps || [])[2] || 'Ulta')}</b> ${me.map === 'survive' && (me.traps || [])[2] === 'Crack' ? 'cracks the papads around you' : 'reverses and speeds up the course'}</li></ul>${me.partners.length ? `<p class="partner">Your partner: <b>${me.partners.map(esc).join(', ')}</b></p>` : ''}<p class="warn">Act normal. Run the course too.</p></div>`;
+  if (me.role === 'king') return '<div class="role king"><img class="role-art" src="/assets/ui/role_king.webp" alt=""><small>Final round</small><h2>Dhakka King</h2><p>No saboteurs. Grab the mukut and hold it. Every dhakka knocks it loose.</p></div>';
+  return '<div class="role racer"><img class="role-art" src="/assets/ui/role_racer.webp" alt=""><small>Your secret role</small><h2>Racer</h2><p>Qualify for points. Somebody is sabotaging. Watch who drops peels, who shoves, who is always nearby when people fall.</p></div>';
 };
 const SCREENS = {
   lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. The host starts the match.</p></div></div>
@@ -212,7 +212,8 @@ function updatePad() {
   const labels = sab ? me.traps : me.emotes, key = (sab ? 'T' : 'E') + labels.join();
   if (key !== extrasKey) {
     extrasKey = key;
-    $('#extras').innerHTML = labels.map((n, i) => `<button type="button" class="ex ${sab ? 'trap' : ''}" data-x="${i}"><span>${esc(n)}</span><i></i></button>`).join('');
+    const ICON = { Kela: 'kela', Bhookamp: 'bhookamp', Ulta: 'ulta', Crack: 'crack' };
+    $('#extras').innerHTML = labels.map((n, i) => `<button type="button" class="ex ${sab ? 'trap' : ''}" data-x="${i}">${sab && ICON[n] ? `<img src="/assets/ui/icon_${ICON[n]}.webp" alt="">` : ''}<span>${esc(n)}</span><i></i></button>`).join('');
     $('#extras').querySelectorAll('[data-x]').forEach(b => press(b, () => extra(Number(b.dataset.x))));
   }
   const st = $('#status');

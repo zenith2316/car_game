@@ -60,7 +60,8 @@ function onRoom(r) {
 }
 function onPhase(ph, was) {
   if (was && ph !== 'play' && !(was === 'intro' && ph === 'countdown')) wipe();
-  S.setMood(ph === 'countdown' || ph === 'roundEnd' ? 'play' : ph);
+  S.setMood(ph === 'countdown' || ph === 'roundEnd' ? 'play' : ph, app.room && app.room.map.kind);
+  if (ph !== 'play' && ph !== 'countdown') S.play('wipe', 0.3);
   if (ph === 'intro') S.play('roll');
   if (ph === 'reveal') { S.play('roll'); setTimeout(() => S.play('gong'), 3300); }
   if (ph === 'finished') { S.play('cheer'); for (let i = 0; i < 6; i++) setTimeout(() => confetti(300 + Math.random() * 1000, 300, 60), i * 450); }
@@ -74,7 +75,7 @@ function onSnap(s) {
   for (const f of s.fx || []) fx(f, now);
 }
 
-function wipe() { const w = $('#wipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); S.play('dash', 0); }
+function wipe() { const w = $('#wipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); }
 /* ---------- effects ---------- */
 function part(o) { if (R3 && o.kind !== 'text') return; if (app.parts.length > 520) app.parts.shift(); app.parts.push(Object.assign({ z: 0, vx: 0, vy: 0, vz: 0, life: 0.6, age: 0, size: 6, rot: 0, vr: 0, g: 0 }, o)); }
 function dust(x, y, n, col) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 30 + Math.random() * 70; part({ kind: 'dust', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5, life: 0.45 + Math.random() * 0.3, size: 5 + Math.random() * 6, col: col || 'rgba(255,240,215,0.7)' }); } }
@@ -214,7 +215,7 @@ function tag(x, y, k, name, col, emote) {
   ctx.restore();
 }
 function frame3d(now, dt, T) {
-  R3.render({ cur, room: app.room, dt, T, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D });
+  R3.render({ cur, room: app.room, dt, T, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D, emotes: app.emotes, now });
   const v = app.view;
   ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const players = cur.p || [], ph = app.room && app.room.phase;
@@ -307,7 +308,7 @@ function renderOverlay() {
     case 'lobby': {
       const inv = app.invite, url = inv && inv.urls[0];
       html = `<section class="lobby">
-        <header class="brand"><h1 class="logo">Dhakka <span>Mukki</span></h1><p>The desi push-and-shove party race for 3 to 10 players. Phones are the controllers. Watch out, a <b>Chupa Rustam</b> is hiding among you.</p></header>
+        <header class="brand"><h1 class="logo"><img src="/assets/ui/logo.webp" alt="Dhakka Mukki"></h1><p>The desi push-and-shove party race for 3 to 10 players. Phones are the controllers. Watch out, a <b>Chupa Rustam</b> is hiding among you.</p></header>
         <aside class="join card">
           <h2>Join on your phone</h2>
           ${inv && inv.qr ? `<img class="qr" src="${inv.qr}" alt="QR code to join">` : ''}
@@ -328,7 +329,7 @@ function renderOverlay() {
     }
     case 'intro': {
       const sab = r.saboteurCount;
-      html = `<section class="card intro pop">
+      html = `<section class="card intro pop">${['tapri', 'papad', 'pankha', 'king'].includes(r.map.id) ? `<div class="cardart" style="background-image:url(/assets/ui/card_${r.map.id}.jpg)"></div>` : ''}
         <p class="kicker">Round ${r.round} of ${r.rounds}</p><h1 class="title">${esc(r.map.name)}</h1>
         <p class="blurb">${esc(r.map.blurb)}</p><p class="goal">${goal(r)}</p>
         ${sab ? `<p class="secret">Check your phone. <b>${sab} Chupa Rustam${sab > 1 ? 's are' : ' is'}</b> hiding among you, sabotaging the round.</p>` : r.map.kind === 'crown' ? '<p class="secret gold">Final round. Biggest points of the night.</p>' : ''}

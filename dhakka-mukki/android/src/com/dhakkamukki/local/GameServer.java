@@ -40,7 +40,7 @@ public final class GameServer {
 
     static final String WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     static final int MAX_SOCKETS = 24, MAX_FRAME = 4096, MAX_QUEUE = 48, MAX_MSG_PER_SEC = 150;
-    static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+    static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
 
     final int port;
     private final Host host;
@@ -181,11 +181,11 @@ public final class GameServer {
             String file;
             if (path.equals("/")) file = "index.html";
             else if (path.equals("/display")) file = "display.html";
-            else if (path.matches("/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*\\.(js|css|svg|png|woff2|txt)") && !path.contains("..")) file = path.substring(1);
+            else if (path.matches("/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*\\.(js|css|svg|png|woff2|txt|glb|jpg|webp|ogg|json)") && !path.contains("..")) file = path.substring(1);
             else { error(out, 404, "not_found", "Page not found"); return; }
             byte[] body;
             try { body = host.asset(file); } catch (IOException e) { error(out, 404, "not_found", "Page not found"); return; }
-            respond(out, 200, type(file), body, method.equals("HEAD"));
+            respond(out, 200, type(file), body, method.equals("HEAD"), file.startsWith("assets/") ? "public, max-age=3600" : "no-store");
         } catch (Exception ignored) {
         } finally {
             if (!handedOver) quietClose(s);
@@ -199,6 +199,11 @@ public final class GameServer {
         if (f.endsWith(".png")) return "image/png";
         if (f.endsWith(".woff2")) return "font/woff2";
         if (f.endsWith(".txt")) return "text/plain; charset=utf-8";
+        if (f.endsWith(".glb")) return "model/gltf-binary";
+        if (f.endsWith(".jpg")) return "image/jpeg";
+        if (f.endsWith(".webp")) return "image/webp";
+        if (f.endsWith(".ogg")) return "audio/ogg";
+        if (f.endsWith(".json")) return "application/json";
         return "text/html; charset=utf-8";
     }
 
@@ -206,8 +211,10 @@ public final class GameServer {
         respond(out, code, "application/json; charset=utf-8", ("{\"ok\":false,\"error\":{\"code\":" + Json.quote(c) + ",\"message\":" + Json.quote(msg) + "}}").getBytes(StandardCharsets.UTF_8), false);
     }
 
-    static void respond(OutputStream out, int code, String type, byte[] body, boolean head) throws IOException {
-        out.write(("HTTP/1.1 " + code + " Response\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: " + CSP + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+    static void respond(OutputStream out, int code, String type, byte[] body, boolean head) throws IOException { respond(out, code, type, body, head, "no-store"); }
+
+    static void respond(OutputStream out, int code, String type, byte[] body, boolean head, String cache) throws IOException {
+        out.write(("HTTP/1.1 " + code + " Response\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: " + CSP + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
         if (!head) out.write(body);
         out.flush();
     }

@@ -186,7 +186,7 @@ public class HostingService extends Service implements GameServer.Host {
         byte[] cached = assetCache.get(path);
         if (cached != null) return cached;
         InputStream in = getAssets().open("web/" + path);
-        try { byte[] all = readAll(in, 16 * 1024 * 1024); assetCache.put(path, all); return all; } finally { in.close(); }
+        try { byte[] all = readAll(in, 32 * 1024 * 1024); if (all.length < 1536 * 1024) assetCache.put(path, all); return all; } finally { in.close(); }
     }
 
     @Override public String invite(String hostHeader, boolean local) {

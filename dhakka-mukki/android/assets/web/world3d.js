@@ -265,18 +265,18 @@ export function updateWorld(w, map, snap, T, tfTimes, Dhakka) {
   if (d.tiles && map.tiles) {
     const t = d.tiles, str = snap.tl || '';
     map.tiles.forEach((tl, i) => {
-      const s = str[i] || '0'; let y = -5, sc = 1, shake = 0;
+      const s = str[i] || '0'; let y = t.y0 == null ? -5 : t.y0, sc = 1, shake = 0;
       if (s === 'x') { const ft = tfTimes[i]; const age = ft != null ? T - ft : 9; if (age > 1.2) { sc = 0.0001; } else { y = -5 - age * age * 380; sc = 1 - age * 0.4; } }
       const k = s === 'x' ? 9 : s === '0' ? 0 : Number(s);
       if (k && s !== 'x') shake = Math.sin(T * 70 + i) * k * 0.35;
-      t.v.set(tl.x + shake, y, tl.y); t.s.set(tl.r * sc, 10, tl.r * sc); t.q.identity();
+      t.v.set(tl.x + shake, y, tl.y); if (t.uniform) t.s.set(tl.r * sc, tl.r * sc, tl.r * sc); else t.s.set(tl.r * sc, 10, tl.r * sc); t.q.identity();
       if (s === 'x') t.q.setFromEuler(new THREE.Euler(Math.sin(i) * 0.5 * (1 - sc), 0, Math.cos(i) * 0.5 * (1 - sc)));
       t.m4.compose(t.v, t.q, t.s); t.mesh.setMatrixAt(i, t.m4);
       const h = k / 9; t.c.setRGB(1, 1 - h * 0.45, 1 - h * 0.8); t.mesh.setColorAt(i, t.c);
     });
     t.mesh.instanceMatrix.needsUpdate = true; t.mesh.instanceColor.needsUpdate = true;
   }
-  if (d.oil) { const o = d.oil; o.seeds.forEach((s, i) => { const ph = (T * 0.5 + s[2]) % 1, sc = Math.sin(ph * Math.PI) * s[3]; o.m4.makeScale(sc + 0.01, sc + 0.01, sc + 0.01).setPosition(s[0] + 200 * Math.sin(i), -515, s[1]); o.bubbles.setMatrixAt(i, o.m4); }); o.bubbles.instanceMatrix.needsUpdate = true; }
+  if (d.oil) { const o = d.oil; o.seeds.forEach((s, i) => { const ph = (T * 0.5 + s[2]) % 1, sc = Math.sin(ph * Math.PI) * s[3]; o.m4.makeScale(sc + 0.01, sc + 0.01, sc + 0.01).setPosition(s[0] + 200 * Math.sin(i), o.y == null ? -515 : o.y, s[1]); o.bubbles.setMatrixAt(i, o.m4); }); o.bubbles.instanceMatrix.needsUpdate = true; }
   d.peels.forEach((p, i) => { const pe = snap.pe && snap.pe[i]; p.visible = !!pe; if (pe) { p.position.set(pe[0], 0, pe[1]); p.rotation.y = i * 1.7; } });
   if (d.crown) {
     const c = snap.cr; d.crown.visible = !!c && c[3] < 0;
@@ -284,4 +284,6 @@ export function updateWorld(w, map, snap, T, tfTimes, Dhakka) {
   }
   d.clouds.forEach(c => { c.g.position.x = c.base.x + Math.sin(T * 0.08 + c.ph) * 60; c.g.position.y = c.base.y + Math.sin(T * 0.3 + c.ph) * 10; });
   (d.diyas || []).forEach(dy => { dy.g.position.y = dy.y + Math.sin(T * 0.9 + dy.ph) * 18; dy.g.rotation.y = T * 0.3 + dy.ph; });
+  (d.kites || []).forEach(k => { k.g.position.x = k.base.x + Math.sin(T * 0.4 + k.ph) * 60; k.g.position.y = k.base.y + Math.sin(T * 0.7 + k.ph) * 30; k.g.rotation.z = Math.sin(T * 0.9 + k.ph) * 0.25; });
+  if (d.ferris) d.ferris.rotation.z = T * 0.12;
 }

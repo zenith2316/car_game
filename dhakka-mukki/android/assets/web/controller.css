@@ -135,3 +135,10 @@ body.playing .screen{padding-bottom:min(62dvh,430px)}
  .lobby-top .who img,.preview.small{width:56px;height:56px}
  .big{width:min(27dvh,140px)}
 }
+/* rendered art */
+.role{position:relative;overflow:hidden}
+.role .role-art{float:right;width:132px;height:132px;margin:-12px -10px 0 6px;filter:drop-shadow(0 6px 0 rgba(42,15,74,.35))}
+.big{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.big img{width:62%;height:auto;margin-top:-12%;pointer-events:none;filter:drop-shadow(0 3px 0 rgba(42,15,74,.25))}
+.big span{font-size:17px;margin-top:-8%}
+.ex img{position:relative;z-index:1;width:30px;height:30px;vertical-align:middle;margin-right:4px;pointer-events:none}
