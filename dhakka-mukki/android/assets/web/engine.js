@@ -203,29 +203,30 @@ class Engine {
           this.send(c.cid, this.roomState());
           return;
         }
-        c.kind = 'player';
+        // the host may also play: a player connection that carries the host token gets host rights too
+        c.kind = 'player'; c.host = typeof m.host === 'string' && m.host === this.hostToken;
         this.out.push(['#', c.cid + ':P']);
         const seat = typeof m.token === 'string' && this.players.find(x => x.token === m.token);
         if (seat) {
           if (seat.cid && seat.cid !== c.cid) { const old = this.clients.get(seat.cid); if (old) { old.pid = null; this.err(old.cid, 'replaced', 'This seat was opened on another screen.'); } }
           seat.cid = c.cid; seat.online = true; c.pid = seat.id; seat.inp.lj = null; seat.inp.ld = null;
-          this.send(c.cid, { t: 'welcome', role: 'player', id: seat.id, token: seat.token, room: this.room });
+          this.send(c.cid, { t: 'welcome', role: 'player', id: seat.id, token: seat.token, room: this.room, host: c.host });
           this.roomDirty = true; this.sendMe(seat);
-        } else this.send(c.cid, { t: 'welcome', role: 'player', id: null, room: this.room });
+        } else this.send(c.cid, { t: 'welcome', role: 'player', id: null, room: this.room, host: c.host });
         this.send(c.cid, this.roomState());
         return;
       }
       case 'ping': this.send(c.cid, { t: 'pong', c: m.c }); return;
       case 'join': {
         if (c.kind !== 'player') fail('role', 'Open the player page to join.');
-        if (p) { this.send(c.cid, { t: 'welcome', role: 'player', id: p.id, token: p.token, room: this.room }); return; }
+        if (p) { this.send(c.cid, { t: 'welcome', role: 'player', id: p.id, token: p.token, room: this.room, host: c.host }); return; }
         const name = String(m.name || '').trim().replace(/\s+/g, ' ');
         if (name.length < 1 || name.length > 14 || /[\u0000-\u001f<>]/.test(name)) fail('name', 'Use a name of 1 to 14 characters.');
         if (this.players.some(x => x.name.toLowerCase() === name.toLowerCase())) fail('name', 'Someone already has that name.');
         if (this.players.length >= SEATS) fail('full', 'All ten spots are taken.');
         const n = this.addPlayer(name, m.color, m.look, false);
         n.cid = c.cid; n.online = true; c.pid = n.id;
-        this.send(c.cid, { t: 'welcome', role: 'player', id: n.id, token: n.token, room: this.room });
+        this.send(c.cid, { t: 'welcome', role: 'player', id: n.id, token: n.token, room: this.room, host: c.host });
         this.sendMe(n); return;
       }
       case 'look': {
@@ -258,8 +259,8 @@ class Engine {
         if (this.roundPlayers().every(x => this.votes[x.id])) this.phaseLeft = Math.min(this.phaseLeft, 1.2);
         return;
       }
-      case 'leave': if (!p) return; this.removePlayer(p.id); c.pid = null; this.send(c.cid, { t: 'welcome', role: 'player', id: null, room: this.room }); return;
-      case 'host': if (!c.host) fail('permission', 'Only the host screen can do that.'); this.hostAction(m); return;
+      case 'leave': if (!p) return; this.removePlayer(p.id); c.pid = null; this.send(c.cid, { t: 'welcome', role: 'player', id: null, room: this.room, host: c.host }); return;
+      case 'host': if (!c.host) fail('permission', 'Only the host can do that.'); this.hostAction(m); return;
       default: return;
     }
   }

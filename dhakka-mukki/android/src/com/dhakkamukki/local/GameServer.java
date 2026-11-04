@@ -40,7 +40,7 @@ public final class GameServer {
 
     static final String WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     static final int MAX_SOCKETS = 24, MAX_FRAME = 4096, MAX_QUEUE = 48, MAX_MSG_PER_SEC = 150;
-    static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+    static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'";
 
     final int port;
     private final Host host;
@@ -214,7 +214,7 @@ public final class GameServer {
     static void respond(OutputStream out, int code, String type, byte[] body, boolean head) throws IOException { respond(out, code, type, body, head, "no-store"); }
 
     static void respond(OutputStream out, int code, String type, byte[] body, boolean head, String cache) throws IOException {
-        out.write(("HTTP/1.1 " + code + " Response\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: " + CSP + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+        out.write(("HTTP/1.1 " + code + " Response\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: SAMEORIGIN\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: " + CSP + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
         if (!head) out.write(body);
         out.flush();
     }

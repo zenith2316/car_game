@@ -202,3 +202,18 @@ body.gl .step b{margin-top:0;font-size:calc(30 * var(--u))}
 .brand .logo{animation:wobble 4s ease-in-out infinite}
 .intro .cardart{height:calc(250 * var(--u));margin:calc(-30 * var(--u)) calc(-50 * var(--u)) calc(10 * var(--u));background-size:cover;background-position:center;border-bottom:var(--line)}
 body.gl .intro{width:calc(900 * var(--u));margin-left:calc(-450 * var(--u))}
+/* the host plays too */
+.playframe{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:30;background:transparent}
+body.hostplays .hostbar,body.hostplays .sound-btn{display:none}
+.playmenu{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(42,15,74,.55);padding:16px}
+.playmenu[hidden]{display:none}
+.pm-card{width:min(640px,100%);background:var(--paper);border:var(--line);border-radius:calc(30 * var(--u));padding:calc(24 * var(--u));box-shadow:0 calc(8 * var(--u)) 0 var(--plum);display:grid;gap:calc(14 * var(--u));color:var(--plum);text-align:center}
+.pm-card .title{font-size:calc(40 * var(--u));color:var(--rani)}
+.pm-opt{display:grid;gap:6px;text-align:left;background:#FFFFFF;border:var(--line);border-radius:calc(20 * var(--u));padding:calc(14 * var(--u)) calc(18 * var(--u));box-shadow:0 calc(5 * var(--u)) 0 var(--plum);color:var(--plum)}
+.pm-opt b{font-size:calc(24 * var(--u))}
+.pm-opt span{font-size:calc(17 * var(--u));color:#6A4C8C;font-weight:500}
+.pm-opt em{font-style:normal;color:var(--rani);font-weight:800}
+.pm-opt:active{transform:translateY(3px)}
+.btn.play{background:linear-gradient(180deg,#B9F0FF,#6EC3FF);box-shadow:0 calc(5 * var(--u)) 0 var(--plum);margin-top:calc(12 * var(--u));font-size:calc(20 * var(--u));padding:calc(8 * var(--u)) calc(20 * var(--u))}
+/* while the host plays on this screen, the room controls live in the host's controller */
+body.hostplays .hostset,body.hostplays .podium .row,body.hostplays .chip .x{display:none}

@@ -142,3 +142,41 @@ body.playing .screen{padding-bottom:min(62dvh,430px)}
 .big img{width:62%;height:auto;margin-top:-12%;pointer-events:none;filter:drop-shadow(0 3px 0 rgba(42,15,74,.25))}
 .big span{font-size:17px;margin-top:-8%}
 .ex img{position:relative;z-index:1;width:30px;height:30px;vertical-align:middle;margin-right:4px;pointer-events:none}
+/* host controls: the host can play from a phone-style controller and still run the room */
+.host-btn{flex:none;font:inherit;font-size:14px;font-weight:800;padding:4px 14px;min-height:36px;border-radius:999px;background:linear-gradient(180deg,#FFE066,#FFB800);border:var(--edge);color:var(--plum);box-shadow:0 3px 0 var(--plum)}
+.host-btn.on{background:var(--rani);color:#FFFFFF}
+.me-chip+.host-btn{margin-left:0}
+.bar .me-chip:empty+.host-btn{margin-left:auto}
+.hostctl{position:fixed;z-index:26;top:calc(56px + env(safe-area-inset-top,0px));left:12px;right:12px;max-width:520px;margin:0 auto;max-height:calc(100dvh - 72px);overflow:auto;background:var(--paper);border:var(--edge);border-radius:24px;padding:12px 14px 14px;box-shadow:0 6px 0 var(--plum);animation:pop .3s cubic-bezier(.2,1.6,.4,1) both}
+.hc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.hc-head h2{font-family:var(--display);font-weight:400;font-size:24px;color:var(--rani)}
+.hc-head .ghost{min-height:38px;padding:4px 14px}
+.hostctl .seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hostctl .seg button{flex:1 0 auto;font:inherit;font-size:15px;padding:8px 10px;min-height:44px;border-radius:999px;background:#FFFFFF;border:var(--edge);color:var(--plum);box-shadow:0 3px 0 var(--plum)}
+.hostctl .seg button[aria-pressed="true"]{background:var(--rani);color:#FFFFFF}
+.hostctl .row .ghost{flex:1}
+.hostctl .row .cta{flex:1.4}
+.hc-mode{margin-top:12px;text-align:center}
+.cta:disabled{opacity:.55}
+
+/* embedded over the arena on the host screen: transparent page, pad in the corners, menus in a side card */
+html.embed,html.embed .pad-body{background:transparent!important;min-height:100dvh}
+html.embed .pad-body::before{display:none}
+html.embed .bar{position:fixed;top:0;right:0;left:auto;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 6px;z-index:6}
+html.embed .bar .logo{display:none}
+html.embed .screen{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));right:14px;left:auto;width:min(400px,44vw);max-height:calc(100dvh - 76px);overflow:auto;margin:0;padding:0 2px 8px;z-index:5}
+html.embed body.playing .screen{padding-bottom:8px;max-height:calc(52dvh - 70px)}
+html.embed body.live .screen{display:none}
+html.embed .pad{height:min(54dvh,380px);background:none;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+html.embed .status{display:none}
+html.embed .stick{max-width:44vw}
+html.embed .stick p{color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
+html.embed .buttons{justify-self:end;width:min(320px,40vw)}
+html.embed .extras{left:auto;right:14px;width:min(440px,46vw)}
+html.embed .big{width:min(22dvh,120px)}
+html.embed .peek{top:auto;bottom:calc(min(54dvh,380px) + 6px);right:14px}
+html.embed .role-peek{left:auto;right:14px;width:min(420px,46vw)}
+html.embed .hostctl{left:auto;right:14px;width:min(440px,46vw);max-width:none}
+html.embed .toast{left:auto;right:14px;width:min(420px,46vw)}
+html.embed .msg,html.embed .card,html.embed .lobby-top,html.embed .vote{margin-top:0}
+html.embed .preview{height:140px}

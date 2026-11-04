@@ -5,9 +5,16 @@
 const $ = (s, r = document) => r.querySelector(s);
 const A = window.DArt;
 const ls = { get(k) { try { return localStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { localStorage.setItem('dm.' + k, v); } catch (_) {} } };
+const ss = { get(k) { try { return sessionStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { sessionStorage.setItem('dm.' + k, v); } catch (_) {} } };
+/* The host can play too: either embedded over the arena on the host screen (?embed=1) or with this page as the
+   host's controller while the arena is on a TV. Both pass the host token in the hash, which grants host controls. */
+const EMBED = new URLSearchParams(location.search).has('embed');
+let hostToken = new URLSearchParams(location.hash.slice(1)).get('host') || ss.get('host');
+if (hostToken) { ss.set('host', hostToken); history.replaceState({}, '', location.pathname + location.search); }
+if (EMBED) document.documentElement.classList.add('embed');
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const app = {
-  ws: null, token: ls.get('player'), id: null, me: null, room: null, screenKey: '', retry: 500, meAt: 0,
+  ws: null, host: false, hostKey: '', hostOpen: false, token: ls.get('player'), id: null, me: null, room: null, screenKey: '', retry: 500, meAt: 0,
   pick: { name: ls.get('name'), color: Number(ls.get('color') || -1), look: Number(ls.get('look') || 0) }, picking: false, joining: false,
   inp: { x: 0, y: 0, j: 0, d: 0 }, sentAt: 0, sentKey: '', avatars: new Map(), role: null
 };
@@ -26,7 +33,7 @@ function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (_
 /* ---------- network ---------- */
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); app.ws = ws;
-  ws.onopen = () => { app.retry = 500; $('#conn').className = 'dot on'; $('#conn').setAttribute('aria-label', 'Connected'); ws.send(JSON.stringify({ t: 'hello', role: 'player', token: app.token || undefined })); };
+  ws.onopen = () => { app.retry = 500; $('#conn').className = 'dot on'; $('#conn').setAttribute('aria-label', 'Connected'); ws.send(JSON.stringify({ t: 'hello', role: 'player', token: app.token || undefined, host: hostToken || undefined })); };
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (_) { return; } onMessage(m); };
   ws.onclose = () => { $('#conn').className = 'dot off'; $('#conn').setAttribute('aria-label', 'Reconnecting'); setTimeout(connect, app.retry); app.retry = Math.min(4000, app.retry * 1.6); };
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
@@ -35,6 +42,7 @@ function send(o) { if (app.ws && app.ws.readyState === 1) { app.ws.send(JSON.str
 function onMessage(m) {
   if (m.t === 'welcome') {
     app.id = m.id; app.joining = false;
+    app.host = !!m.host; if (!m.host && hostToken) { hostToken = ''; ss.set('host', ''); }
     if (m.id) { app.token = m.token; ls.set('player', m.token); }
     else { app.token = ''; ls.set('player', ''); app.me = null; }
     render();
@@ -60,6 +68,7 @@ function render() {
   const me = app.me, r = app.room;
   $('#me-chip').innerHTML = me ? `<img src="${avatar(me.color, me.look, 28)}" width="28" height="28" alt=""><span>${esc(me.name)}</span><b>${me.score}</b>` : '';
   if (!r) return;
+  renderHost();
   let screen, key;
   if (!app.id) { screen = joinScreen; key = 'join:' + r.players.map(p => p.color).join(',') + ':' + app.joining + ':' + r.phase; }
   else if (!me) { screen = () => '<section class="msg"><div class="spin"></div><h1>Taking your spot…</h1></section>'; key = 'wait-me'; }
@@ -67,7 +76,7 @@ function render() {
   else {
     const ph = me.waiting ? 'waiting' : me.phase;
     screen = SCREENS[ph] || SCREENS.wait;
-    key = ph + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
+    key = ph + ':' + app.host + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
   }
   const showPad = !!me && !app.picking && !me.waiting && PAD_PHASES.includes(me.phase);
   document.body.classList.toggle('playing', showPad);
@@ -108,13 +117,13 @@ const roleCard = me => {
   return '<div class="role racer"><img class="role-art" src="/assets/ui/role_racer.webp" alt=""><small>Your secret role</small><h2>Racer</h2><p>Qualify for points. Somebody is sabotaging. Watch who drops peels, who shoves, who is always nearby when people fall.</p></div>';
 };
 const SCREENS = {
-  lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. The host starts the match.</p></div></div>
-    <div class="row"><button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button><button class="ghost" data-act="pick">Change look</button><button class="ghost small" data-act="leave">Leave</button></div></section>`; },
+  lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. ${app.host ? 'You are the host. Add bots or change rounds under Host.' : 'The host starts the match.'}</p></div></div>
+    <div class="row">${app.host ? `<button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>` : `<button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button>`}<button class="ghost" data-act="pick">Change look</button><button class="ghost small" data-act="leave">Leave</button></div></section>`; },
   intro: () => { const me = app.me; return `<section class="intro-phone"><p class="kicker">Round ${app.room.round} · ${esc(app.room.map.name)}</p><button class="reveal-btn" data-hold="role" type="button"><span>Press and hold to see your role</span><small>Hide your screen from your neighbours</small></button><div id="role-slot" hidden>${roleCard(me)}</div></section>`; },
   countdown: () => '',
   play: () => '',
   roundEnd: () => '',
-  finished: () => { const me = app.me; return `<section class="lobby-top"><div class="who"><img src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>#${me.rank} with ${me.score} pts</h1><p>${me.rank === 1 ? 'You are the Dhakka King!' : 'Good match. Rematch?'}</p></div></div></section>`; },
+  finished: () => { const me = app.me; return `<section class="lobby-top"><div class="who"><img src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>#${me.rank} with ${me.score} pts</h1><p>${me.rank === 1 ? 'You are the Dhakka King!' : 'Good match. Rematch?'}</p></div></div>${app.host ? '<div class="row"><button class="cta" data-act="h-start">Play again</button><button class="ghost" data-act="h-lobby">Back to lobby</button></div>' : ''}</section>`; },
   panchayat: () => {
     const me = app.me, r = app.room, others = r.players.filter(p => !p.waiting && p.id !== me.id);
     if (me.vote) { const t = r.players.find(p => p.id === me.vote); return `<section class="msg"><h1>Vote locked</h1><p>${me.vote === 'skip' ? 'You skipped.' : 'You blamed <b>' + esc(t ? t.name : 'someone') + '</b>.'}</p><p class="sub">${r.players.filter(p => !p.waiting && p.voted).length} of ${r.players.filter(p => !p.waiting).length} have voted.</p></section>`; }
@@ -127,7 +136,10 @@ const SCREENS = {
   waiting: () => '<section class="msg"><h1>You are in</h1><p>A round is running. You join from the next one. Watch the big screen and spot the saboteur.</p></section>',
   wait: () => '<section class="msg"><h1>Hold tight</h1></section>'
 };
+let holdHide = null;
+['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, () => { if (holdHide) holdHide(); }));
 function afterRender() {
+  holdHide = null;
   setTimeout(livePreview, 0);
   const pv = $('[data-preview]');
   const f = $('#join');
@@ -138,7 +150,8 @@ function afterRender() {
   const hold = $('[data-hold="role"]');
   if (hold) {
     const slot = $('#role-slot'), show = e => { e.preventDefault(); slot.hidden = false; hold.classList.add('held'); buzz(15); }, hide = () => { slot.hidden = true; hold.classList.remove('held'); };
-    hold.addEventListener('pointerdown', show); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => hold.addEventListener(ev, hide));
+    // the button hides itself while held, so release on lift anywhere rather than on leaving the button
+    hold.addEventListener('pointerdown', show); holdHide = hide;
     hold.addEventListener('contextmenu', e => e.preventDefault());
   }
 }
@@ -148,6 +161,7 @@ document.addEventListener('click', e => {
   const v = e.target.closest('[data-vote]'); if (v) { const t = v.dataset.vote, n = t === 'skip' ? null : app.room.players.find(p => p.id === t); if (t === 'skip' || confirm('Blame ' + (n ? n.name : 'them') + '? Your vote locks in.')) { send({ t: 'vote', target: t }); buzz(20); } return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
+  if (a.startsWith('h-')) { hostAct(a.slice(2), b); return; }
   if (a === 'ready') send({ t: 'ready', on: !app.me.ready });
   else if (a === 'pick') { app.picking = true; app.pick.color = app.me.color; app.pick.look = app.me.look; render(); }
   else if (a === 'cancelpick') { app.picking = false; app.screenKey = ''; render(); }
@@ -155,10 +169,43 @@ document.addEventListener('click', e => {
   else if (a === 'leave') { if (confirm('Leave the mela? Your spot opens for someone else.')) { send({ t: 'leave' }); } }
 });
 
+/* ---------- host controls ---------- */
+function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
+function hostAct(a, b) {
+  if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostKey = ''; renderHost(); return; }
+  if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); return; }
+  if (a === 'end') { if (confirm('End the match now and show the podium?')) hostDo('end'); return; }
+  if (a === 'screen') { // stop playing on the host screen and give the arena back
+    const r = app.room; if (r && ['lobby', 'finished'].includes(r.phase) && app.id) send({ t: 'leave' });
+    try { parent.postMessage({ dm: 'close' }, location.origin); } catch (_) {}
+    return;
+  }
+  if (a === 'arena') { location.href = '/display#host=' + encodeURIComponent(hostToken); return; }
+  if (a === 'start' || a === 'lobby') { app.hostOpen = false; app.hostKey = ''; }
+  hostDo(a);
+}
+function renderHost() {
+  const btn = $('#host-btn'), panel = $('#hostctl'), r = app.room;
+  btn.hidden = !app.host; if (!app.host || !r) { panel.hidden = true; return; }
+  const idle = ['lobby', 'finished'].includes(r.phase), s = r.settings;
+  btn.classList.toggle('on', app.hostOpen);
+  const key = [app.hostOpen, r.phase, r.paused, s.rounds, s.saboteurs, s.talk, r.players.length].join('|');
+  if (key === app.hostKey) return; app.hostKey = key;
+  panel.hidden = !app.hostOpen; if (!app.hostOpen) return;
+  const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label, on]) => `<button data-act="h-set" data-k="${k}" data-v="${v}" aria-pressed="${on}">${label}</button>`).join('')}</div>`;
+  panel.innerHTML = `<div class="hc-head"><h2>Host controls</h2><button class="ghost small" data-act="h-toggle" aria-label="Close host controls">Close</button></div>` + (idle
+    ? `${seg('rounds', [3, 5, 7].map(n => [n, n + ' rounds', s.rounds === n]))}
+       ${seg('saboteurs', [[1, 'Chupa Rustam on', s.saboteurs], [0, 'Off', !s.saboteurs]])}
+       ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}
+       <div class="row"><button class="ghost" data-act="h-addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button><button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.phase === 'finished' ? 'Play again' : r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button></div>`
+    : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
+    + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
+}
+
 /* One persistent preview canvas (one WebGL context) is moved into whichever screen has a slot for it. */
 let previewCanvas = null;
 function livePreview() {
-  const slot = $('[data-preview]'); if (!window.DPortrait) return;
+  const slot = $('[data-preview]'); if (!window.DPortrait || EMBED) return; // embedded: portraits only, the arena is the 3D view
   try {
     if (!slot) { window.DPortrait.pause(); return; }
     if (!previewCanvas) { previewCanvas = document.createElement('canvas'); previewCanvas.setAttribute('aria-hidden', 'true'); }

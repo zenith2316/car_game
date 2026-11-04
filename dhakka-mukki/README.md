@@ -26,6 +26,15 @@ A local multiplayer party game for 3 to 10 players, built on the same foundation
 
 **Scoring:** a race qualifier gets +3, with +2 for 1st and +1 for 2nd. Surviving gets +3. In the final, hold time ranks +6 / +4 / +2, and anyone else who held it gets +1. Spotting a saboteur in the vote is +2, and blaming an innocent is -1. A saboteur who isn't ejected gets +3 plus 1 per fall they caused in the last 3.5 seconds before it (capped at 5). A caught saboteur gets nothing that round.
 
+## The host plays too (version 1.3)
+
+Tap **Play too** on the host screen (in the lobby settings row, or the Host bar during a match) and pick a mode:
+
+- **Play on this screen:** a joystick, Jump and Dhakka buttons and your emotes or traps appear over the arena. Menus such as joining, your role and voting open in a side card. Your role stays hidden until you press and hold, the same as on a phone, so it works on the honour system. Host controls (rounds, Chupa Rustam, talk time, bots, start, pause, skip, end) move into a **Host** button in the corner. **Stop playing on this screen** gives the arena back.
+- **Use this device as my controller:** first open the display address on a TV or laptop, then this device becomes a normal phone controller with the same **Host** button. **Show the arena on this device** switches it back.
+
+Both modes open the controller page with the host token, and the engine gives host rights to any connection that holds it, display or player.
+
 ## Architecture (reused from IKKP, upgraded for real time)
 
 ```

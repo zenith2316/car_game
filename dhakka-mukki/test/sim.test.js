@@ -103,6 +103,25 @@ check('full 5-round match with saboteurs runs to the podium', () => {
   assert(maxSnap < 4000, 'snapshot too large for 30 Hz');
 });
 
+check('the host can play: a player connection with the host token runs the room', () => {
+  const e = new Engine({ seed: 7 });
+  e.open('hp'); e.message('hp', JSON.stringify({ t: 'hello', role: 'player', host: e.hostToken }));
+  e.open('p2'); e.message('p2', JSON.stringify({ t: 'hello', role: 'player', host: 'wrong-token-1234567' }));
+  let out = parse(e.drain());
+  assert.strictEqual(out.find(([to, m]) => to === 'hp' && m.t === 'welcome')[1].host, true, 'host player is told it is host');
+  assert.strictEqual(out.find(([to, m]) => to === 'p2' && m.t === 'welcome')[1].host, false, 'a wrong token gets no host rights');
+  e.message('hp', JSON.stringify({ t: 'join', name: 'Host', color: 0, look: 1 }));
+  e.message('p2', JSON.stringify({ t: 'host', a: 'addBot' }));
+  out = parse(e.drain());
+  assert(out.some(([to, m]) => to === 'p2' && m.t === 'err' && m.code === 'permission'), 'ordinary players cannot use host actions');
+  for (let i = 0; i < 3; i++) e.message('hp', JSON.stringify({ t: 'host', a: 'addBot' }));
+  e.message('hp', JSON.stringify({ t: 'host', a: 'start' }));
+  e.update(100);
+  assert.strictEqual(e.players.length, 4, 'host seat plus three bots');
+  assert.notStrictEqual(e.phase, 'lobby', 'the host player started the match');
+  assert(e.roundPlayers().some(p => p.name === 'Host'), 'the host is in the round');
+});
+
 check('saboteur traps respect role and cooldown', () => {
   const e = makeMatch(3, 3);
   e.message('disp', JSON.stringify({ t: 'host', a: 'start' }));

@@ -8,7 +8,7 @@
 </head>
 <body class="pad-body">
 <div id="ouch" class="ouch" aria-hidden="true"></div>
-<header class="bar"><span class="logo">Dhakka <span>Mukki</span></span><span id="me-chip" class="me-chip"></span><span id="conn" class="dot" role="status" aria-label="Connecting"></span></header>
+<header class="bar"><span class="logo">Dhakka <span>Mukki</span></span><span id="me-chip" class="me-chip"></span><button id="host-btn" class="host-btn" type="button" data-act="h-toggle" hidden>Host</button><span id="conn" class="dot" role="status" aria-label="Connecting"></span></header>
 <main id="screen" class="screen"><section class="msg"><div class="spin" aria-hidden="true"></div><h1>Finding the mela</h1><p>Stay on the host's Wi-Fi.</p></section></main>
 <section id="pad" class="pad" hidden aria-label="Controller">
  <div id="status" class="status" role="status" aria-live="polite"></div>
@@ -21,5 +21,6 @@
  <button id="peek" class="peek" type="button" hidden>Hold: my role</button>
 </section>
 <div id="role-peek" class="role-peek" hidden></div>
+<section id="hostctl" class="hostctl" hidden aria-label="Host controls"></section>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body></html>
