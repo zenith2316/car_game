@@ -9,8 +9,11 @@ const canvas = $('#stage'), ctx = canvas.getContext('2d');
 const ss = { get(k) { try { return sessionStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { sessionStorage.setItem('dm.' + k, v); } catch (_) {} } };
 const ls = { get(k) { try { return localStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { localStorage.setItem('dm.' + k, v); } catch (_) {} } };
 let hostToken = new URLSearchParams(location.hash.slice(1)).get('host') || ss.get('host');
-if (hostToken) { ss.set('host', hostToken); history.replaceState({}, '', location.pathname); }
+if (hostToken) { ss.set('host', hostToken); history.replaceState({}, '', location.pathname + location.search); }
 const native = / DhakkaNative\//.test(navigator.userAgent);
+let R3 = null;
+function use3d() { if (R3 || !window.DRender3D) return; R3 = window.DRender3D; R3.setMap(app.map, D); document.body.classList.add('gl'); app.avatars.clear(); app.overlayKey = ''; renderOverlay(); }
+document.addEventListener('dm3d-ready', () => use3d());
 
 const app = {
   ws: null, host: false, room: null, snaps: [], map: D.buildMap('aangan'), mapId: 'aangan', stat: null, statKey: '',
@@ -24,6 +27,7 @@ const nameOf = id => { const p = app.room && app.room.players.find(x => x.id ===
 /* ---------- avatars as data URLs for DOM screens ---------- */
 function avatar(color, look, size = 64) {
   const key = color + ':' + look + ':' + size; if (app.avatars.has(key)) return app.avatars.get(key);
+  if (R3) { try { const u = R3.portrait(color, look, size); app.avatars.set(key, u); return u; } catch (_) {} }
   const c = document.createElement('canvas'), k = 2; c.width = c.height = size * k; const x = c.getContext('2d');
   x.scale(k * size / 80, k * size / 80); A.drawBean(x, { x: 40, y: 72, z: 0, color, look, face: Math.PI / 2, t: 0.3, noShadow: true });
   const url = c.toDataURL(); app.avatars.set(key, url); return url;
@@ -49,12 +53,13 @@ function onMessage(m) {
 }
 function onRoom(r) {
   const prev = app.room; app.room = r;
-  if (r.map.id !== app.mapId) { app.mapId = r.map.id; app.map = D.buildMap(r.map.id); app.snaps = []; app.tf = {}; app.parts = []; app.statKey = ''; }
+  if (r.map.id !== app.mapId) { app.mapId = r.map.id; app.map = D.buildMap(r.map.id); app.snaps = []; app.tf = {}; app.parts = []; app.statKey = ''; if (R3) R3.setMap(app.map, D); }
   if (!prev || prev.phase !== r.phase) { app.phaseSeenAt = performance.now(); onPhase(r.phase, prev && prev.phase); }
   app.phaseLeftAt = { left: r.left, at: performance.now() };
   renderOverlay(); renderHost();
 }
 function onPhase(ph, was) {
+  if (was && ph !== 'play' && !(was === 'intro' && ph === 'countdown')) wipe();
   S.setMood(ph === 'countdown' || ph === 'roundEnd' ? 'play' : ph);
   if (ph === 'intro') S.play('roll');
   if (ph === 'reveal') { S.play('roll'); setTimeout(() => S.play('gong'), 3300); }
@@ -69,25 +74,27 @@ function onSnap(s) {
   for (const f of s.fx || []) fx(f, now);
 }
 
+function wipe() { const w = $('#wipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); S.play('dash', 0); }
 /* ---------- effects ---------- */
-function part(o) { if (app.parts.length > 520) app.parts.shift(); app.parts.push(Object.assign({ z: 0, vx: 0, vy: 0, vz: 0, life: 0.6, age: 0, size: 6, rot: 0, vr: 0, g: 0 }, o)); }
+function part(o) { if (R3 && o.kind !== 'text') return; if (app.parts.length > 520) app.parts.shift(); app.parts.push(Object.assign({ z: 0, vx: 0, vy: 0, vz: 0, life: 0.6, age: 0, size: 6, rot: 0, vr: 0, g: 0 }, o)); }
 function dust(x, y, n, col) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 30 + Math.random() * 70; part({ kind: 'dust', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5, life: 0.45 + Math.random() * 0.3, size: 5 + Math.random() * 6, col: col || 'rgba(255,240,215,0.7)' }); } }
 function sparks(x, y, n) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 150 + Math.random() * 260; part({ kind: 'spark', x, y, z: 30, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 80 + Math.random() * 120, g: 500, life: 0.5, size: 5 + Math.random() * 4, col: ['#FFD84A', '#FFFFFF', '#FF7A1A'][i % 3] }); } }
 function confetti(x, y, n) { const cols = ['#E8177D', '#FFC21A', '#14C4B4', '#FF7A1A', '#9B5CFF', '#6BD13B']; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 80 + Math.random() * 260; part({ kind: 'conf', x, y, z: 40, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: 300 + Math.random() * 380, g: 700, life: 1.6 + Math.random(), size: 6 + Math.random() * 5, rot: Math.random() * TAU, vr: (Math.random() - 0.5) * 16, col: cols[i % cols.length] }); } }
 function ring(x, y, r, col, life = 0.5) { part({ kind: 'ring', x, y, life, size: r, col }); }
-function words(x, y, text, col, size = 34) { part({ kind: 'text', x, y, z: 60, vz: 60, life: 1.1, text, col, size }); }
+function words(x, y, text, col, size = 34) { if (app.parts.filter(p => p.kind === 'text').length >= 4) return; part({ kind: 'text', x, y, z: 60, vz: 60, life: 1.1, text, col, size }); }
 function bean(c) { let b = app.beans.get(c); if (!b) { b = { sq: 0, v: 0, t: Math.random() * 10 }; app.beans.set(c, b); } return b; }
 function flash(text, cls, ms = 1400) { const el = $('#flash'); el.textContent = text; el.className = 'flash show ' + (cls || ''); app.flashUntil = performance.now() + ms; }
 let toastTimer = 0;
 function toast(msg) { const el = $('#flash'); el.textContent = msg; el.className = 'flash show toast'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.className = 'flash'; }, 2600); }
 const HIT_WORDS = ['Dhakka!', 'Dhishoom!', 'Arre!', 'Oof!', 'Hatt!'];
 function fx(f, now) {
+  if (R3) R3.fx(f);
   const [k, a, b, c] = f, col = typeof c === 'number' && A.COLORS[c] ? A.COLORS[c].fill : null;
   switch (k) {
     case 'j': dust(a, b, 4); bean(c).v -= 9; S.play('jump', 0.05); break;
     case 'l': dust(a, b, 6); bean(c).v += 14; S.play('land', 0.07); break;
     case 'd': for (let i = 0; i < 5; i++) part({ kind: 'line', x: a, y: b, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.25, size: 18, col: 'rgba(255,255,255,0.7)' }); S.play('dash', 0.05); break;
-    case 'h': sparks(a, b, 12); app.shake = Math.max(app.shake, 7); if (Math.random() < 0.35) words(a, b - 40, HIT_WORDS[Math.random() * HIT_WORDS.length | 0], '#FFD84A', 30); S.play('hit', 0.04); break;
+    case 'h': sparks(a, b, 12); app.shake = Math.max(app.shake, 7); if (Math.random() < 0.2) words(a, b - 40, HIT_WORDS[Math.random() * HIT_WORDS.length | 0], '#FFD84A', 30); S.play('hit', 0.04); break;
     case 'b': { let best = -1, bd = 1e9; app.map.bumpers.forEach((q, i) => { const p = cur.bu ? { x: cur.bu[i][0], y: cur.bu[i][1] } : q; const d = Math.hypot(p.x - a, p.y - b); if (d < bd) { bd = d; best = i; } }); if (best >= 0) app.pulse[best] = 1; S.play('boing', 0.08); break; }
     case 'f': ring(a, b, 40, 'rgba(255,255,255,0.6)', 0.6); S.play('fall', 0.1); break;
     case 'q': { const p = byColor(a); const pos = beanPos(a); if (pos) { confetti(pos.x, pos.y, 40); words(pos.x, pos.y - 60, b === 1 ? 'PEHLA!' : 'Qualified #' + b, '#FFFFFF', 34); } S.play('qualify', 0); if (p) flash(p.name + (b === 1 ? ' wins the race!' : ' qualified #' + b), 'good', 1500); break; }
@@ -153,6 +160,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; const T = now / 1000;
   const sm = sample(now); cur = sm ? interp(sm) : {};
   const v = app.view, th = A.THEMES[app.map.theme] || A.THEMES.aangan;
+  if (R3) { frame3d(now, dt, T); return; }
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.void[0]; ctx.fillRect(0, 0, canvas.width, canvas.height);
   app.shake *= Math.exp(-9 * dt); const sx = (Math.random() - 0.5) * app.shake, sy = (Math.random() - 0.5) * app.shake;
   ctx.setTransform(v.dpr * v.s, 0, 0, v.dpr * v.s, v.dpr * (v.ox + sx), v.dpr * (v.oy + sy));
@@ -191,6 +199,45 @@ function frame(now) {
     const em = app.emotes.get(c);
     if (em && em.until > now) { ctx.font = '800 20px "Baloo 2", sans-serif'; const ew = ctx.measureText(em.text).width + 22; ctx.fillStyle = '#FFF4DC'; A.rr(ctx, x - ew / 2, top - 52, ew, 32, 14); ctx.fill(); ctx.beginPath(); ctx.moveTo(x - 6, top - 21); ctx.lineTo(x + 6, top - 21); ctx.lineTo(x, top - 12); ctx.fill(); ctx.fillStyle = A.INK; ctx.fillText(em.text, x, top - 36); }
   }
+  A.bunting(ctx, W, T);
+  updateHud(now);
+  if (app.flashUntil && now > app.flashUntil) { $('#flash').className = 'flash'; app.flashUntil = 0; }
+}
+function tag(x, y, k, name, col, emote) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+  ctx.font = '800 17px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(name).width + 22;
+  ctx.fillStyle = 'rgba(28,11,51,0.82)'; A.rr(ctx, -w / 2, -13, w, 26, 13); ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = col.fill; A.rr(ctx, -w / 2, -13, w, 26, 13); ctx.stroke();
+  ctx.fillStyle = '#FFFFFF'; ctx.fillText(name, 0, 1);
+  if (emote) { ctx.font = '800 21px "Baloo 2", sans-serif'; const ew = ctx.measureText(emote).width + 26; ctx.fillStyle = '#FFFFFF'; A.rr(ctx, -ew / 2, -58, ew, 34, 17); ctx.fill(); ctx.beginPath(); ctx.moveTo(-7, -25); ctx.lineTo(7, -25); ctx.lineTo(0, -15); ctx.fill(); ctx.fillStyle = A.INK; ctx.fillText(emote, 0, -40); }
+  ctx.restore();
+}
+function frame3d(now, dt, T) {
+  R3.render({ cur, room: app.room, dt, T, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D });
+  const v = app.view;
+  ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const players = cur.p || [], ph = app.room && app.room.phase;
+  if (!['panchayat', 'reveal', 'scores'].includes(ph)) for (const p of players) {
+    const [c, x, y, z, , , , , fl] = p; if (fl & 6) continue;
+    const pl = byColor(c); if (!pl || (ph === 'finished')) continue;
+    const pt = R3.project(x, y, z + 112); if (!pt.ok) continue;
+    const k = Math.max(0.62, Math.min(1.35, R3.scaleAt(x, y, z) * 1.15));
+    const em = app.emotes.get(c);
+    tag(pt.x, pt.y, k, pl.name, A.COLORS[c], em && em.until > now ? em.text : '');
+  }
+  // floating words, projected from the arena
+  const keep = [], rdt = Math.min(0.5, (now - (app.lastReal || now)) / 1000), menu = ['panchayat', 'reveal', 'scores', 'intro'].includes(ph); app.lastReal = now;
+  for (const p of app.parts) {
+    p.age += rdt; if (p.age >= p.life || menu) continue; keep.push(p);
+    p.z += p.vz * rdt; const pt = R3.project(p.x, p.y, p.z + 40); if (!pt.ok) continue;
+    const sc = (p.age < 0.15 ? p.age / 0.15 * 1.25 : 1) * Math.max(0.8, v.s * 1.4);
+    ctx.save(); ctx.globalAlpha = Math.min(1, (1 - p.age / p.life) * 2); ctx.translate(pt.x, pt.y); ctx.rotate(Math.sin(p.x) * 0.12); ctx.scale(sc, sc);
+    ctx.font = `400 ${p.size}px Shrikhand, "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 9; ctx.strokeStyle = A.INK; ctx.strokeText(p.text, 0, 0); ctx.fillStyle = p.col; ctx.fillText(p.text, 0, 0); ctx.restore();
+  }
+  app.parts = keep;
+  ctx.setTransform(v.dpr * v.s, 0, 0, v.dpr * v.s, v.dpr * v.ox, v.dpr * v.oy);
   A.bunting(ctx, W, T);
   updateHud(now);
   if (app.flashUntil && now > app.flashUntil) { $('#flash').className = 'flash'; app.flashUntil = 0; }
@@ -252,7 +299,7 @@ function playerChips(r) {
 function renderOverlay() {
   const r = app.room, ov = $('#overlay'); if (!r) return;
   const res = r.result;
-  const key = [r.phase, r.paused, r.round, app.host, r.players.map(p => [p.id, p.name, p.color, p.look, p.online, p.ready, p.voted, p.st, p.score].join(',')).join('|'), JSON.stringify(res && [res.gains, res.saboteurs, res.ejected]), app.invite && app.invite.urls.join(), r.settings.rounds, r.settings.saboteurs, r.settings.talk].join('#');
+  const key = [r.phase, r.paused, r.round, app.host, r.players.map(p => [p.id, p.name, p.color, p.look, p.online, p.ready, r.phase === 'panchayat' ? p.voted : '', p.score].join(',')).join('|'), JSON.stringify(res && [res.gains, res.saboteurs, res.ejected]), app.invite && app.invite.urls.join(), r.settings.rounds, r.settings.saboteurs, r.settings.talk].join('#');
   if (key === app.overlayKey) return; app.overlayKey = key;
   let html = '';
   const ps = r.players.filter(p => !p.waiting);

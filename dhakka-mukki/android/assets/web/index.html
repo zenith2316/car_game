@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#1C0B33"><title>Dhakka Mukki</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#6EC3FF"><title>Dhakka Mukki</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/shrikhand-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/baloo2-latin-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/controller.css">
-<script defer src="/art.js"></script><script defer src="/controller.js"></script>
+<script defer src="/art.js"></script><script defer src="/controller.js"></script><script type="module" src="/controller3d.js"></script>
 </head>
 <body class="pad-body">
+<div id="ouch" class="ouch" aria-hidden="true"></div>
 <header class="bar"><span class="logo">Dhakka <span>Mukki</span></span><span id="me-chip" class="me-chip"></span><span id="conn" class="dot" role="status" aria-label="Connecting"></span></header>
 <main id="screen" class="screen"><section class="msg"><div class="spin" aria-hidden="true"></div><h1>Finding the mela</h1><p>Stay on the host's Wi-Fi.</p></section></main>
 <section id="pad" class="pad" hidden aria-label="Controller">

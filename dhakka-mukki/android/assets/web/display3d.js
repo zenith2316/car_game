@@ -1,0 +1,232 @@
+/* Dhakka Mukki 3D renderer for the big screen (WebGL via three.js, bundled locally).
+   display.js owns networking, interpolation, HUD and menus. This module only draws, and exposes window.DRender3D.
+   Falls back to the 2D canvas renderer when WebGL is missing or ?gfx=2d is set. */
+import * as THREE from './vendor/three.js';
+import { makeBean, poseBean, portrait, lightRig, COLORS } from './bean3d.js';
+import { buildWorld, updateWorld, skyTexture, THEMES } from './world3d.js';
+
+const params = new URLSearchParams(location.search);
+const TAU = Math.PI * 2, BIG = 1.25;
+function webglOk() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (_) { return false; } }
+
+function start() {
+  const canvas = document.getElementById('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  const lowEnd = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 3;
+  let quality = params.get('gfx') === 'low' ? 'low' : params.get('gfx') === 'high' ? 'high' : lowEnd ? 'low' : 'high';
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 16 / 9, 20, 12000);
+  const L = lightRig(scene, true);
+  L.key.castShadow = true;
+  Object.assign(L.key.shadow.camera, { left: -1150, right: 1150, top: 820, bottom: -820, near: 100, far: 4000 });
+  L.key.shadow.bias = -0.0004; L.key.shadow.normalBias = 1.5;
+  function applyQuality() {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'high' ? 2 : 1.25));
+    const n = quality === 'high' ? 2048 : 1024; L.key.shadow.mapSize.set(n, n); if (L.key.shadow.map) { L.key.shadow.map.dispose(); L.key.shadow.map = null; }
+    resize();
+  }
+  // soft environment for glossy toy materials
+  (() => {
+    const pm = new THREE.PMREMGenerator(renderer), env = new THREE.Scene();
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, uniforms: { top: { value: new THREE.Color('#9FD4FF') }, bot: { value: new THREE.Color('#FFD1E6') } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = normalize(vP).y * 0.5 + 0.5; gl_FragColor = vec4(mix(bot, top, h), 1.0); }'
+    }));
+    env.add(sky);
+    const box = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5, 5), side: THREE.DoubleSide })); box.position.set(0, 40, 10); box.rotation.x = Math.PI / 2; env.add(box);
+    const rim = new THREE.Mesh(new THREE.PlaneGeometry(30, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 2.6), side: THREE.DoubleSide })); rim.position.set(-40, 10, -20); rim.lookAt(0, 0, 0); env.add(rim);
+    scene.environment = pm.fromScene(env, 0.04).texture; scene.environmentIntensity = 0.6;
+  })();
+
+  let world = null, map = null, mapId = '', overview = { cx: 800, cz: 450, d: 2000, w: 1600, h: 900 };
+  const beans = new Map(); let heldCrown = null;
+  const cam = { tx: 800, ty: 0, tz: 450, d: 2000, yaw: 0, el: 0.92, shake: 0, punch: 0, fov: 30, init: false };
+
+  function dispose(obj) { obj.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); }
+  function setMap(m, Dhakka) {
+    if (world) { scene.remove(world.root); dispose(world.root); }
+    map = m; mapId = m.id; world = buildWorld(m, Dhakka); scene.add(world.root);
+    const th = world.theme; if (scene.background && scene.background.dispose) scene.background.dispose();
+    scene.background = skyTexture(th); scene.fog = new THREE.Fog(th.fog, 3200, 7600);
+    // overview framing from the map's floor bounds
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    const grow = (a, b, c, d) => { x0 = Math.min(x0, a); x1 = Math.max(x1, b); z0 = Math.min(z0, c); z1 = Math.max(z1, d); };
+    m.floors.forEach(f => f.t === 'rect' ? grow(f.x, f.x + f.w, f.y, f.y + f.h) : grow(f.x - f.r, f.x + f.r, f.y - f.r, f.y + f.r));
+    (m.tiles || []).forEach(t => grow(t.x - t.r, t.x + t.r, t.y - t.r, t.y + t.r));
+    m.plats.forEach(p => grow(Math.min(p.ax, p.bx), Math.max(p.ax, p.bx) + p.w, Math.min(p.ay, p.by), Math.max(p.ay, p.by) + p.h));
+    overview = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, w: x1 - x0, h: z1 - z0, d: 0 }; overview.d = fitDistance(overview.w + 120, overview.h + 120);
+    if (heldCrown) { scene.remove(heldCrown); heldCrown = null; }
+    if (world.dyn.crown) { heldCrown = world.dyn.crown.clone(); heldCrown.children = heldCrown.children.filter(c => !c.isSprite); heldCrown.scale.setScalar(0.85); heldCrown.visible = false; scene.add(heldCrown); }
+    cam.init = false;
+  }
+  function fitDistance(w, h) {
+    const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    return Math.max((w / 2) / Math.tan(hf / 2), (h * Math.sin(cam.el) * 0.9 + 120) / Math.tan(vf / 2) * 0.62) * 1.04;
+  }
+  function resize() {
+    const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    camera.aspect = w / h; camera.updateProjectionMatrix(); if (map) overview.d = fitDistance(overview.w + 120, overview.h + 120);
+  }
+  addEventListener('resize', resize);
+
+  /* ---------- particles (instanced pools) ---------- */
+  function pool(geom, material, cap) { const m = new THREE.InstancedMesh(geom, material, cap); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.castShadow = false; scene.add(m); const parts = []; const zero = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < cap; i++) { m.setMatrixAt(i, zero); m.setColorAt(i, new THREE.Color(1, 1, 1)); } return { m, parts, cap, next: 0 }; }
+  const puffs = pool(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.95, transparent: true, opacity: 0.8, depthWrite: false }), 240);
+  const sparks = pool(new THREE.OctahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFB000', emissiveIntensity: 0.9, roughness: 0.3 }), 180);
+  const confetti = pool(new THREE.BoxGeometry(1, 0.18, 0.62), new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.5, side: THREE.DoubleSide }), 420);
+  const rings = []; for (let i = 0; i < 10; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(1, 0.07, 8, 48), new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0, depthWrite: false })); r.rotation.x = Math.PI / 2; r.visible = false; scene.add(r); rings.push({ r, age: 1, life: 1, size: 1 }); }
+  const tmpC = new THREE.Color();
+  function emit(P, o) { const i = P.next; P.next = (P.next + 1) % P.cap; P.parts[i] = Object.assign({ age: 0, life: 0.6, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, size: 6, rot: Math.random() * TAU, vr: 0, grow: 0 }, o); P.m.setColorAt(i, tmpC.set(o.col || '#FFFFFF')); P.m.instanceColor.needsUpdate = true; }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s3 = new THREE.Vector3();
+  function stepPool(P, dt) {
+    for (let i = 0; i < P.cap; i++) {
+      const p = P.parts[i]; if (!p) continue;
+      p.age += dt;
+      if (p.age >= p.life) { P.parts[i] = null; m4.makeScale(0, 0, 0); P.m.setMatrixAt(i, m4); continue; }
+      p.vy -= p.g * dt; const dr = Math.exp(-p.drag * dt); p.vx *= dr; p.vz *= dr; p.vy *= p.drag ? dr : 1;
+      p.x += p.vx * dt; p.y = Math.max(-900, p.y + p.vy * dt); p.z += p.vz * dt; p.rot += p.vr * dt;
+      const k = p.age / p.life, sc = p.size * (p.grow ? (0.5 + k * p.grow) * (1 - k * k) : (1 - k * 0.7));
+      e.set(p.rot, p.rot * 0.7, 0); q.setFromEuler(e); v.set(p.x, p.y, p.z); s3.set(sc, sc, sc); m4.compose(v, q, s3); P.m.setMatrixAt(i, m4);
+    }
+    P.m.instanceMatrix.needsUpdate = true;
+  }
+  function puff(x, y, z, n, col, spd = 70, size = 9) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU; emit(puffs, { x, y: z + 4, z: y, vx: Math.cos(a) * spd * (0.4 + Math.random()), vz: Math.sin(a) * spd * (0.4 + Math.random()), vy: 20 + Math.random() * 40, drag: 3, life: 0.45 + Math.random() * 0.35, size: size * (0.6 + Math.random() * 0.6), grow: 1.4, col }); } }
+  function spark(x, y, z, n) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 160 + Math.random() * 280; emit(sparks, { x, y: z + 30, z: y, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 120 + Math.random() * 220, g: 700, life: 0.5 + Math.random() * 0.2, size: 4 + Math.random() * 3, vr: 12, col: ['#FFD84A', '#FFFFFF', '#FF9A3D'][i % 3] }); } }
+  const CONF = ['#E8177D', '#FFC21A', '#14C4B4', '#FF7A1A', '#9B5CFF', '#6BD13B', '#3D8BFF'];
+  function burst(x, y, z, n, up = 520) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 60 + Math.random() * 260; emit(confetti, { x, y: z + 40, z: y, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: up * (0.5 + Math.random() * 0.7), g: 520, drag: 1.2, life: 2 + Math.random(), size: 9 + Math.random() * 6, vr: (Math.random() - 0.5) * 18, col: CONF[i % CONF.length] }); } }
+  function ring(x, y, r, col, life = 0.55, h = 4) { const R = rings.find(o => o.age >= o.life) || rings[0]; Object.assign(R, { age: 0, life, size: r }); R.r.material.color.set(col); R.r.position.set(x, h, y); R.r.visible = true; }
+  function stepRings(dt) { for (const R of rings) { if (R.age >= R.life) { R.r.visible = false; continue; } R.age += dt; const k = R.age / R.life, sc = R.size * (0.25 + k * 0.9); R.r.scale.set(sc, sc, 1 + k * 8); R.r.material.opacity = (1 - k) * 0.9; } }
+
+  /* ---------- characters ---------- */
+  function beanFor(c, look) {
+    let b = beans.get(c);
+    if (!b || b.userData.look !== look) { if (b) { scene.remove(b); } b = makeBean(c, look); beans.set(c, b); scene.add(b); }
+    return b;
+  }
+  function nearestBumper(x, y, snap) {
+    if (!world) return; let best = null, bd = 1e9;
+    world.dyn.bumpers.forEach((b, i) => { const p = snap && snap.bu ? { x: snap.bu[i][0], y: snap.bu[i][1] } : b.bp; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = b; } });
+    if (best) best.pulse = 1;
+  }
+  const tf = {}; let lastSnap = {}, ultaFlash = 0, focusQ = null;
+  function fx(f) {
+    const [k, a, b, c] = f, bean = typeof c === 'number' ? beans.get(c) : null, col = typeof c === 'number' && COLORS[c] ? COLORS[c].fill : '#FFFFFF';
+    const T = performance.now() / 1000;
+    switch (k) {
+      case 'j': puff(a, b, 0, 3, '#FFF4E6', 50, 6); if (bean) bean.userData.st.sqv -= 9; break;
+      case 'l': puff(a, b, 0, 4, '#FFF4E6', 80, 7); if (bean) bean.userData.st.sqv += 15; break;
+      case 'd': puff(a, b, 0, 3, '#FFFFFF', 120, 6); break;
+      case 'h': spark(a, b, 0, 16); ring(a, b, 44, '#FFD84A', 0.35, 40); cam.shake = Math.max(cam.shake, 10); cam.punch = Math.max(cam.punch, 0.6); break;
+      case 'b': nearestBumper(a, b, lastSnap); spark(a, b, 30, 3); break;
+      case 'f': puff(a, b, -20, 12, '#FFFFFF', 160, 12); ring(a, b, 60, '#FFFFFF', 0.6); break;
+      case 'q': { const pos = beanPos(a); if (pos) { burst(pos.x, pos.y, 0, 70); focusQ = { x: pos.x, y: pos.y, until: T + 1.2 }; } cam.punch = 1; break; }
+      case 'k': puff(a, b, 0, 6, '#FFE36A', 60, 7); break;
+      case 's': ring(a, b, 40, '#FFD93B', 0.4); spark(a, b, 0, 6); break;
+      case 'w': ring(a, b, 230, '#9B5CFF', 0.6, 10); ring(a, b, 160, '#E8177D', 0.45, 20); puff(a, b, 0, 26, '#C9A8FF', 260, 14); cam.shake = 22; cam.punch = 1; break;
+      case 'u': ultaFlash = 1; break;
+      case 'c': puff(a, b, 0, 16, '#F4C46A', 140, 9); break;
+      case 'tf': { tf[a] = T; const t = map && map.tiles && map.tiles[a]; if (t) puff(t.x, t.y, 0, 6, '#E8B04C', 80, 7); break; }
+      case 'r': { const pos = beanPos(a); if (pos) { ring(pos.x, pos.y, 40, '#FFFFFF', 0.5); spark(pos.x, pos.y, 100, 8); } break; }
+      case 'g': { const pos = beanPos(a); if (pos) { spark(pos.x, pos.y, 60, 18); ring(pos.x, pos.y, 70, '#FFC21A', 0.5, 60); } cam.punch = 0.8; break; }
+      case 'go': cam.punch = 1.2; break;
+    }
+  }
+  function beanPos(c) { const p = (lastSnap.p || []).find(x => x[0] === c); return p ? { x: p[1], y: p[2] } : null; }
+
+  /* ---------- podium ---------- */
+  let podium = null;
+  function numTex(n, col) { const c = document.createElement('canvas'); c.width = 256; c.height = 256; const x = c.getContext('2d'); x.fillStyle = col; x.fillRect(0, 0, 256, 256); x.font = '190px Shrikhand, "Baloo 2", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 16; x.strokeStyle = 'rgba(28,11,51,0.85)'; x.strokeText(n, 128, 140); x.fillStyle = '#FFFFFF'; x.fillText(n, 128, 140); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+  function ensurePodium(r) {
+    const ids = (r.podium || []).join();
+    if (podium && podium.ids === ids) return podium;
+    if (podium) { scene.remove(podium.g); dispose(podium.g); }
+    const g = new THREE.Group(), steps = [[0, 100, '#FFC21A'], [-150, 70, '#C9D3E0'], [150, 46, '#E0915A']], winners = [];
+    steps.forEach(([dx, h, col], i) => {
+      const side = new THREE.MeshStandardMaterial({ color: col, roughness: 0.35, metalness: 0.25 }), front = new THREE.MeshStandardMaterial({ map: numTex(String(i + 1), col), roughness: 0.4 });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(130, h, 110), [side, side, side, side, front, side]); box.position.set(800 + dx, h / 2, 520); box.castShadow = box.receiveShadow = true; g.add(box);
+      const p = r.players.find(x => x.id === (r.podium || [])[i]);
+      if (p) { const b = makeBean(p.color, p.look); b.userData.base = { x: 800 + dx, y: 520, z: h, rank: i }; g.add(b); winners.push(b); }
+    });
+    scene.add(g); podium = { g, ids, winners, colors: (r.podium || []).map(id => (r.players.find(x => x.id === id) || {}).color) }; return podium;
+  }
+
+  /* ---------- camera director ---------- */
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  function direct(o, dt, T) {
+    const r = o.room, ph = r ? r.phase : 'lobby', age = o.phaseAge || 0;
+    let tx = overview.cx, tz = overview.cz, d = overview.d, yaw = Math.sin(T * 0.12) * 0.06, el = 0.92;
+    const players = (lastSnap.p || []).filter(p => !(p[8] & (2 | 4 | 8)));
+    if (ph === 'intro') {
+      const k = ease(Math.min(1, age / 5.5));
+      let sx = overview.cx, sz = overview.cz; if (map && map.kind === 'race' && map.spawns) { sx = map.spawns.reduce((s, p) => s + p[0], 0) / map.spawns.length; sz = map.spawns.reduce((s, p) => s + p[1], 0) / map.spawns.length; }
+      tx = sx + (overview.cx - sx) * k; tz = sz + (overview.cz - sz) * k; d = overview.d * (0.42 + 0.58 * k); yaw = -0.9 * (1 - k); el = 0.5 + 0.42 * k;
+    } else if (ph === 'countdown') { d = overview.d * 0.92; }
+    else if (ph === 'play' && players.length) {
+      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, sx = 0, sz = 0;
+      for (const p of players) { x0 = Math.min(x0, p[1]); x1 = Math.max(x1, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); sx += p[1]; sz += p[2]; }
+      const blend = map && map.kind === 'race' ? 0.78 : 0.5;
+      tx = overview.cx + (((x0 + x1) / 2) - overview.cx) * blend; tz = overview.cz + (((z0 + z1) / 2) - overview.cz) * blend;
+      d = Math.max(overview.d * 0.5, Math.min(overview.d, fitDistance(x1 - x0 + 520, z1 - z0 + 420)));
+      if (focusQ && T < focusQ.until) { tx += (focusQ.x - tx) * 0.35; tz += (focusQ.y - tz) * 0.35; d *= 0.9; }
+    } else if (ph === 'roundEnd') { yaw = Math.sin(age * 0.35) * 0.25; d = overview.d * 0.82; }
+    else if (['panchayat', 'reveal', 'scores'].includes(ph)) { yaw = T * 0.05 % TAU; d = overview.d * 0.95; el = 0.78; }
+    else if (ph === 'finished') { tx = 800; tz = 520; d = overview.d * 0.68; el = 0.36; yaw = Math.sin(T * 0.25) * 0.14; }
+    const k = cam.init ? 1 - Math.exp(-dt * (ph === 'intro' ? 6 : 2.4)) : 1; cam.init = true;
+    cam.tx += (tx - cam.tx) * k; cam.tz += (tz - cam.tz) * k; cam.d += (d - cam.d) * k; cam.el += (el - cam.el) * k;
+    let dy = yaw - cam.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; cam.yaw += dy * k;
+    cam.shake *= Math.exp(-dt * 8); cam.punch *= Math.exp(-dt * 5);
+    const sh = cam.shake, ox = (Math.random() - 0.5) * sh, oy = (Math.random() - 0.5) * sh;
+    const fy = ph === 'finished' ? 150 : 0;
+    camera.position.set(cam.tx + Math.sin(cam.yaw) * Math.cos(cam.el) * cam.d + ox, fy + Math.sin(cam.el) * cam.d + oy, cam.tz + Math.cos(cam.yaw) * Math.cos(cam.el) * cam.d);
+    camera.lookAt(cam.tx + ox * 0.3, fy, cam.tz);
+    const fov = 30 - cam.punch * 2.2; if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    L.key.target.position.set(cam.tx, 0, cam.tz); L.key.position.set(cam.tx - 420, 1300, cam.tz + 640);
+  }
+
+  /* ---------- frame ---------- */
+  let fpsAcc = 0, fpsN = 0, slow = 0;
+  function render(o) {
+    const dt = o.dt, T = o.T, r = o.room, snap = o.cur || {};
+    lastSnap = snap;
+    if (quality === 'high') { fpsAcc += dt; fpsN++; if (fpsN >= 90) { if (fpsAcc / fpsN > 1 / 38) slow++; else slow = 0; if (slow >= 2) { quality = 'low'; applyQuality(); } fpsAcc = 0; fpsN = 0; } }
+    if (!world) return;
+    updateWorld(world, map, snap, T, tf, o.Dhakka);
+    const fin = r && r.phase === 'finished' ? ensurePodium(r) : null;
+    if (podium) podium.g.visible = !!fin;
+    const seen = new Set();
+    for (const p of snap.p || []) {
+      const [c, x, y, z, vx, vy, f, stun, fl] = p, pl = r && r.players.find(q => q.color === c);
+      const b = beanFor(c, pl ? pl.look : 0); seen.add(c);
+      const hide = (fl & 4) || !!fin;
+      b.visible = !hide && !((fl & 32) && Math.floor(T * 12) % 2);
+      if (hide) continue;
+      const falling = !!(fl & 2);
+      poseBean(b, { x, y, z: falling ? z * 1.4 : z, vx, vy, face: f / 100, stun: stun > 0, dash: fl & 1, slip: fl & 64, falling, dt, big: BIG, scale: falling ? Math.max(0.2, 1 + z / 700) : 1 });
+      if (fl & 8) { b.userData.core.position.y = Math.abs(Math.sin(T * 6 + c)) * 14; b.userData.arms.forEach((a, i) => { a.rotation.x = -2.6 + Math.sin(T * 10 + i * 3) * 0.4; }); }
+      if (fl & 16 && heldCrown) { heldCrown.visible = true; heldCrown.position.set(x, z + 86 + Math.sin(T * 5) * 2, y); heldCrown.rotation.y = T * 2; }
+    }
+    if (heldCrown && !(snap.p || []).some(p => p[8] & 16)) heldCrown.visible = false;
+    for (const [c, b] of beans) if (!seen.has(c)) b.visible = false;
+    if (fin) fin.winners.forEach(b => { const bs = b.userData.base, cyc = (T * 1.3 + bs.rank * 0.4) % 1, hop = bs.rank === 0 ? Math.sin(cyc * Math.PI) * 34 : Math.sin(cyc * Math.PI) * 16; poseBean(b, { x: bs.x, y: bs.y, z: bs.z + hop, face: Math.PI / 2, dt, big: 1.6 }); b.userData.arms.forEach((a, i) => { a.rotation.x = -2.7 + Math.sin(T * 9 + i * 2) * 0.35; }); });
+    if (fin && Math.random() < dt * 3) burst(600 + Math.random() * 400, 420 + Math.random() * 120, 220, 18, 300);
+    ultaFlash = Math.max(0, ultaFlash - dt * 1.5);
+    renderer.toneMappingExposure = 1.08 + ultaFlash * 0.25;
+    direct(o, dt, T);
+    stepPool(puffs, dt); stepPool(sparks, dt); stepPool(confetti, dt); stepRings(dt);
+    renderer.render(scene, camera);
+  }
+  const pv = new THREE.Vector3();
+  function project(x, y, z) { pv.set(x, z, y).project(camera); return { x: (pv.x * 0.5 + 0.5) * innerWidth, y: (-pv.y * 0.5 + 0.5) * innerHeight, ok: pv.z < 1 && pv.z > -1 }; }
+  function scaleAt(x, y, z) { const a = project(x, y, z), b = project(x, y, z + 60); return Math.abs(a.y - b.y) / 60; }
+
+  applyQuality();
+  window.DRender3D = { setMap, render, fx, project, scaleAt, portrait, get quality() { return quality; }, setQuality(qv) { quality = qv; applyQuality(); }, get mapId() { return mapId; } };
+  document.dispatchEvent(new CustomEvent('dm3d-ready'));
+}
+
+if (params.get('gfx') !== '2d' && webglOk()) {
+  try { start(); } catch (err) { console.warn('3D renderer unavailable, using 2D', err); window.DRender3D = null; document.dispatchEvent(new CustomEvent('dm3d-failed')); }
+} else document.dispatchEvent(new CustomEvent('dm3d-failed'));

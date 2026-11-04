@@ -15,6 +15,7 @@ const PAD_PHASES = ['lobby', 'countdown', 'play', 'roundEnd', 'finished'];
 
 function avatar(color, look, size = 64) {
   const key = color + ':' + look + ':' + size; if (app.avatars.has(key)) return app.avatars.get(key);
+  if (window.DPortrait) { try { const u = window.DPortrait.portrait(color, look, size); app.avatars.set(key, u); return u; } catch (_) {} }
   const c = document.createElement('canvas'), k = 2; c.width = c.height = size * k; const x = c.getContext('2d');
   x.scale(k * size / 80, k * size / 80); A.drawBean(x, { x: 40, y: 72, color, look, face: Math.PI / 2, t: 0.3, noShadow: true });
   const url = c.toDataURL(); app.avatars.set(key, url); return url;
@@ -44,6 +45,9 @@ function onMessage(m) {
     if (was && was.st !== m.st && m.st === 'done') buzz([20, 40, 20, 40, 60]);
     if (was && was.st !== m.st && m.st === 'out') buzz(220);
     render();
+  } else if (m.t === 'bz') {
+    const pat = { hit: [40, 30, 60], bonk: 18, slip: [20, 20, 20, 20, 20], fall: [80, 40, 160] }[m.k] || 20; buzz(pat);
+    const o = $('#ouch'); o.className = 'ouch ' + m.k; void o.offsetWidth; o.className = 'ouch show ' + m.k;
   } else if (m.t === 'err') {
     app.joining = false;
     if (m.code === 'kicked') { app.token = ''; ls.set('player', ''); app.id = null; app.me = null; }
@@ -87,6 +91,7 @@ function joinScreen() {
     <h1>Jump in</h1>
     <p class="sub">${r.phase === 'lobby' || r.phase === 'finished' ? 'Pick a name and a look. Then run around the aangan while everyone joins.' : 'A match is on. You will join from the next round.'}</p>
     <label for="nm">Your name</label><input id="nm" name="nm" maxlength="14" required placeholder="What do we shout?" value="${esc(app.pick.name)}">
+    <canvas class="preview" data-preview="pick" aria-hidden="true"></canvas>
     <label>Colour</label>${colorGrid(app.pick.color)}
     <label>Look</label>${lookGrid(app.pick.color, app.pick.look)}
     <button class="cta" type="submit" ${app.joining ? 'disabled' : ''}>${app.joining ? 'Joining…' : 'Join the mela'}</button>
@@ -94,7 +99,7 @@ function joinScreen() {
   </form>`;
 }
 function pickScreen() {
-  return `<section class="card form"><h1>Change your look</h1><label>Colour</label>${colorGrid(app.pick.color)}<label>Look</label>${lookGrid(app.pick.color, app.pick.look)}
+  return `<section class="card form"><h1>Change your look</h1><canvas class="preview" data-preview="pick" aria-hidden="true"></canvas><label>Colour</label>${colorGrid(app.pick.color)}<label>Look</label>${lookGrid(app.pick.color, app.pick.look)}
     <div class="row"><button class="cta" data-act="savelook">Save</button><button class="ghost" data-act="cancelpick">Cancel</button></div></section>`;
 }
 const roleCard = me => {
@@ -103,7 +108,7 @@ const roleCard = me => {
   return '<div class="role racer"><small>Your secret role</small><h2>Racer</h2><p>Qualify for points. Somebody is sabotaging. Watch who drops peels, who shoves, who is always nearby when people fall.</p></div>';
 };
 const SCREENS = {
-  lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><img src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. The host starts the match.</p></div></div>
+  lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. The host starts the match.</p></div></div>
     <div class="row"><button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button><button class="ghost" data-act="pick">Change look</button><button class="ghost small" data-act="leave">Leave</button></div></section>`; },
   intro: () => { const me = app.me; return `<section class="intro-phone"><p class="kicker">Round ${app.room.round} · ${esc(app.room.map.name)}</p><button class="reveal-btn" data-hold="role" type="button"><span>Press and hold to see your role</span><small>Hide your screen from your neighbours</small></button><div id="role-slot" hidden>${roleCard(me)}</div></section>`; },
   countdown: () => '',
@@ -123,6 +128,8 @@ const SCREENS = {
   wait: () => '<section class="msg"><h1>Hold tight</h1></section>'
 };
 function afterRender() {
+  setTimeout(livePreview, 0);
+  const pv = $('[data-preview]');
   const f = $('#join');
   if (f) {
     const nm = $('#nm'); nm.addEventListener('input', () => { app.pick.name = nm.value; ls.set('name', nm.value); });
@@ -147,6 +154,20 @@ document.addEventListener('click', e => {
   else if (a === 'savelook') { send({ t: 'look', color: app.pick.color, look: app.pick.look }); ls.set('color', app.pick.color); ls.set('look', app.pick.look); app.picking = false; app.screenKey = ''; render(); }
   else if (a === 'leave') { if (confirm('Leave the mela? Your spot opens for someone else.')) { send({ t: 'leave' }); } }
 });
+
+/* One persistent preview canvas (one WebGL context) is moved into whichever screen has a slot for it. */
+let previewCanvas = null;
+function livePreview() {
+  const slot = $('[data-preview]'); if (!window.DPortrait) return;
+  try {
+    if (!slot) { window.DPortrait.pause(); return; }
+    if (!previewCanvas) { previewCanvas = document.createElement('canvas'); previewCanvas.setAttribute('aria-hidden', 'true'); }
+    previewCanvas.className = slot.className; slot.replaceWith(previewCanvas);
+    const mine = slot.dataset.preview === 'me';
+    window.DPortrait.show(previewCanvas, mine ? app.me.color : app.pick.color, mine ? app.me.look : app.pick.look);
+    document.body.classList.add('gl');
+  } catch (_) { document.body.classList.remove('gl'); window.DPortrait = null; }
+}
 
 /* ---------- controller pad ---------- */
 const stick = $('#stick'), knob = $('.knob', stick), base = $('.base', stick);
@@ -220,5 +241,6 @@ const peek = $('#peek'), rp = $('#role-peek');
 peek.addEventListener('pointerdown', e => { e.preventDefault(); if (app.me) { rp.innerHTML = roleCard(app.me); rp.hidden = false; } });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => peek.addEventListener(ev, () => { rp.hidden = true; }));
 document.addEventListener('visibilitychange', () => { if (document.hidden) { app.inp.x = app.inp.y = 0; pushInput(true); } });
+document.addEventListener('dm3d-ready', () => { app.avatars.clear(); app.screenKey = ''; render(); });
 connect();
 })();

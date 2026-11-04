@@ -181,6 +181,7 @@ class Engine {
   cast(group, o) { this.out.push([group, JSON.stringify(o)]); }
   drain() { const o = this.out; this.out = []; return o; }
   err(cid, code, msg) { this.send(cid, { t: 'err', code, msg }); }
+  buzz(p, k) { if (p && p.cid) this.send(p.cid, { t: 'bz', k }); }
 
   message(cid, text) {
     const c = this.clients.get(cid); if (!c || typeof text !== 'string' || text.length > 2000) return;
@@ -561,7 +562,7 @@ class Engine {
       const hit = (atk, vic, sx, sy, pa, pv) => {
         if (vic.inv > 0) return;
         vic.vx = sx * KNOCK + atk.vx * 0.25; vic.vy = sy * KNOCK + atk.vy * 0.25; vic.vz = Math.max(vic.vz, 220);
-        vic.stun = STUN_HIT; vic.hit = { by: pa.id, t: this.t }; atk.dash = 0; atk.vx *= 0.3; atk.vy *= 0.3;
+        vic.stun = STUN_HIT; vic.hit = { by: pa.id, t: this.t }; atk.dash = 0; atk.vx *= 0.3; atk.vy *= 0.3; this.buzz(pv, 'hit'); this.buzz(pa, 'bonk');
         this.stats.hits++; this.fx.push(['h', ((atk.x + vic.x) / 2) | 0, ((atk.y + vic.y) / 2) | 0, pv.color]);
         if (ms.crown && ms.crown.holder === pv.id) this.dropCrown(pv);
       };
@@ -616,6 +617,7 @@ class Engine {
       pe.life = 0; b.slip = 1.1; b.stun = Math.max(b.stun, 0.9);
       const s = Math.max(260, hyp(b.vx, b.vy)) * 1.5; b.vx = Math.cos(b.face) * s; b.vy = Math.sin(b.face) * s;
       if (pe.by !== p.id) b.hit = { by: pe.by, t: this.t };
+      this.buzz(p, 'slip');
       this.fx.push(['s', b.x | 0, b.y | 0, p.color]);
     }
     if (map.kind === 'race' && this.phase === 'play') {
@@ -627,7 +629,7 @@ class Engine {
     }
   }
   startFall(p) {
-    const b = p.b; b.state = 'fall'; b.fallT = 0.85; this.stats.falls++;
+    const b = p.b; b.state = 'fall'; b.fallT = 0.85; this.stats.falls++; this.buzz(p, 'fall');
     this.fx.push(['f', b.x | 0, b.y | 0, p.color]);
     if (this.ms.crown && this.ms.crown.holder === p.id) this.dropCrown(p);
     if (this.phase !== 'play') return;

@@ -44,7 +44,17 @@ Host Android device                                   Player phones / TV browser
 - `android/assets/web/engine.js` is the single authoritative engine: rules, 60 Hz fixed-step physics, maps, bots and scoring. It is pure JavaScript with no wall-clock time, so the same file runs in the Android engine WebView, the Node dev host and the tests. The display loads it too, for map geometry.
 - The service ticks the engine every 33 ms with the socket events that arrived since the last tick. The engine replies with lines of `target<TAB>json` (a client id, `*`, `D` for displays, `P` for players). The display gets about 600 byte snapshots at 30 Hz and interpolates 70 ms behind for smooth 60 fps. Phones get only their own private state.
 - What carries over from IKKP: the foreground hosting service with wake and Wi-Fi locks, the isolated headless engine WebView, Host and Origin header checks, host-token admin rights, the Connect dialog (same Wi-Fi or local-only hotspot, with ZXing QR codes), a `/display` URL for a TV, seats that survive phone reconnects, no AndroidX, minSdk 26 and targetSdk 36. From DesiQuip: the Baloo 2 and Shrikhand fonts (SIL OFL) and the desi tone.
-- What's new: a WebSocket channel instead of HTTP polling (IKKP's 350 requests per 10 s cap can't carry joystick input), and procedural canvas art and Web Audio music and effects, so the APK is about 450 KB.
+- What's new: a WebSocket channel instead of HTTP polling (IKKP's 350 requests per 10 s cap can't carry joystick input), a 3D renderer, and Web Audio music and effects. The APK is about 650 KB.
+
+## Graphics (version 1.1)
+
+The big screen renders in 3D with three.js 0.169 (MIT, bundled in `web/vendor/`, since the page security policy only allows local scripts). Everything is still procedural, with no model or image files:
+
+- `bean3d.js`: glossy toy characters with googly eyes, swinging arms, stepping feet, squash and stretch, stun tumbles and all 10 looks. It also renders the menu portraits and the phone's live preview.
+- `world3d.js`: builds each map in 3D from the engine's own map data, so the visuals always match the physics. Candy slabs float over a sky of clouds and diyas, with rolling pins, steel thalis, clay kulhads, instanced papads over an oil kadhai, the fallen fan, dhol drums and the mukut.
+- `display3d.js`: soft shadows, an environment map for the glossy look, a director camera (intro flyover, follows the pack, zooms in on a qualifier, orbits during menus), instanced 3D particles, and a dancing 3D podium.
+- Quality is picked automatically and drops to a lighter mode if the frame rate falls. `/display?gfx=low`, `?gfx=high` or `?gfx=2d` force a mode. Without WebGL, the original 2D canvas renderer is used.
+- The menus use a bright candy party-show style (cream panels, thick outlines, press-down buttons, stripe wipes between phases). Phones buzz and flash their screen edge when you're shoved, slip or fall.
 
 ## Run it
 
@@ -52,7 +62,7 @@ Host Android device                                   Player phones / TV browser
 npm run dev            # Node dev host with the same routes and protocol as the APK
 # host screen: the URL printed with #host=...   players: http://<your-lan-ip>:8793/
 npm test               # headless engine tests, including a full 10-player match with bots
-npm run e2e            # Playwright: display + 2 phones + bots through every phase (needs the dev host running)
+npm run e2e            # Playwright: display + 2 phones + bots through every phase (needs the dev host running. DM_GFX=2d keeps it fast without a GPU)
 npm run apk            # builds and signs build/out/DhakkaMukki.apk
 ```
 
@@ -62,6 +72,6 @@ npm run apk            # builds and signs build/out/DhakkaMukki.apk
 
 ## Known limits
 
-- Tested on desktop JVM, Chromium and emulated phones. Not yet run on a physical Android device.
+- Tested on desktop JVM, Chromium and emulated phones, with software WebGL for the 3D path. Not yet run on a physical Android device, so 3D frame rate on a real host tablet or phone is unmeasured (the renderer falls back to a lighter mode on its own).
 - If the host app's process is killed, the room is gone (no mid-match checkpoint, unlike IKKP's turn-based save).
 - English UI with Hinglish flavour. There is no full Hinglish toggle yet (IKKP has one).
