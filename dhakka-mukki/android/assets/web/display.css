@@ -217,3 +217,7 @@ body.hostplays .hostbar,body.hostplays .sound-btn{display:none}
 .btn.play{background:linear-gradient(180deg,#B9F0FF,#6EC3FF);box-shadow:0 calc(5 * var(--u)) 0 var(--plum);margin-top:calc(12 * var(--u));font-size:calc(20 * var(--u));padding:calc(8 * var(--u)) calc(20 * var(--u))}
 /* while the host plays on this screen, the room controls live in the host's controller */
 body.hostplays .hostset,body.hostplays .podium .row,body.hostplays .chip .x{display:none}
+/* the host's controller covers the corners, so the lobby keeps only the logo and the arena
+   (the native Connect players button still shows the join QR) */
+body.hostplays .lobby .brand p,body.hostplays .lobby .join,body.hostplays .lobby .dock{display:none}
+body.hostplays .lobby .brand{transform:scale(.62);transform-origin:top left}

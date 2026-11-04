@@ -194,10 +194,10 @@ function renderHost() {
   panel.hidden = !app.hostOpen; if (!app.hostOpen) return;
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label, on]) => `<button data-act="h-set" data-k="${k}" data-v="${v}" aria-pressed="${on}">${label}</button>`).join('')}</div>`;
   panel.innerHTML = `<div class="hc-head"><h2>Host controls</h2><button class="ghost small" data-act="h-toggle" aria-label="Close host controls">Close</button></div>` + (idle
-    ? `${seg('rounds', [3, 5, 7].map(n => [n, n + ' rounds', s.rounds === n]))}
+    ? `<div class="row"><button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.phase === 'finished' ? 'Play again' : r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button><button class="ghost" data-act="h-addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button></div>
+       ${seg('rounds', [3, 5, 7].map(n => [n, n + ' rounds', s.rounds === n]))}
        ${seg('saboteurs', [[1, 'Chupa Rustam on', s.saboteurs], [0, 'Off', !s.saboteurs]])}
-       ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}
-       <div class="row"><button class="ghost" data-act="h-addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button><button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.phase === 'finished' ? 'Play again' : r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button></div>`
+       ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}`
     : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
     + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
 }

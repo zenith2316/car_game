@@ -159,24 +159,93 @@ body.playing .screen{padding-bottom:min(62dvh,430px)}
 .hc-mode{margin-top:12px;text-align:center}
 .cta:disabled{opacity:.55}
 
-/* embedded over the arena on the host screen: transparent page, pad in the corners, menus in a side card */
+/* ---------- embedded over the arena on the host screen ----------
+   The host device is often a phone in landscape (about 800 x 320 CSS px), so everything here is sized from the
+   screen height: a slim top bar, a compact menu card at the top right, and the pad in the bottom corners. */
+html.embed{--top:clamp(34px,11dvh,52px);--sb:clamp(92px,30dvh,150px);--bb:clamp(62px,21dvh,112px);--padh:min(50dvh,330px)}
 html.embed,html.embed .pad-body{background:transparent!important;min-height:100dvh}
 html.embed .pad-body::before{display:none}
-html.embed .bar{position:fixed;top:0;right:0;left:auto;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 6px;z-index:6}
+html.embed .bar{position:fixed;top:0;right:0;left:auto;gap:6px;padding:calc(4px + env(safe-area-inset-top,0px)) 8px 0;z-index:6}
 html.embed .bar .logo{display:none}
-html.embed .screen{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));right:14px;left:auto;width:min(400px,44vw);max-height:calc(100dvh - 76px);overflow:auto;margin:0;padding:0 2px 8px;z-index:5}
-html.embed body.playing .screen{padding-bottom:8px;max-height:calc(52dvh - 70px)}
+html.embed .me-chip{font-size:13px;padding:0 10px 0 2px;box-shadow:0 2px 0 var(--plum);max-width:30vw}
+html.embed .me-chip img{width:22px;height:22px}
+html.embed .host-btn{font-size:13px;min-height:28px;padding:2px 12px;box-shadow:0 2px 0 var(--plum)}
+html.embed .dot{width:12px;height:12px}
+/* menu card: joining, lobby, role, votes, scores */
+html.embed .screen{position:fixed;top:calc(var(--top) + 4px);right:8px;left:auto;width:min(360px,46vw);max-height:calc(100dvh - var(--top) - 12px);overflow:auto;margin:0;padding:0 2px 6px;z-index:5;-webkit-overflow-scrolling:touch}
+html.embed body.playing .screen{max-height:calc(100dvh - var(--top) - var(--padh) - 8px);padding-bottom:0}
 html.embed body.live .screen{display:none}
-html.embed .pad{height:min(54dvh,380px);background:none;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+html.embed .msg,html.embed .card,html.embed .lobby-top,html.embed .vote{margin-top:0;border-radius:18px;box-shadow:0 4px 0 var(--plum);animation:none}
+html.embed .msg{padding:10px 12px}
+html.embed .msg h1{font-size:20px}
+html.embed .msg p{font-size:14px;margin-top:4px}
+html.embed .card{padding:10px 12px}
+html.embed .form h1{font-size:22px}
+html.embed .form .sub,html.embed .form .fine{font-size:13px}
+html.embed .form label{margin:8px 0 4px;font-size:12px}
+html.embed .form input{font-size:16px;padding:6px 10px;border-radius:12px}
+html.embed .swatches{gap:6px}
+html.embed .swatches button{min-height:30px}
+html.embed .looks{gap:4px}
+html.embed .looks button{min-height:0;padding:2px;font-size:10px;border-radius:10px}
+html.embed .looks button img{width:32px;height:32px}
+html.embed .cta{font-size:16px;padding:6px 12px;min-height:40px;margin-top:10px;box-shadow:0 4px 0 var(--plum)}
+html.embed .ghost{font-size:14px;padding:4px 12px;min-height:38px;box-shadow:0 3px 0 var(--plum)}
+/* lobby: one compact strip with the host's Start button always in view */
+html.embed .lobby-top{display:flex;flex-direction:column;gap:6px;padding:8px 10px}
+html.embed .lobby-top .who{gap:8px}
+html.embed .lobby-top .who img{width:36px;height:36px}
+html.embed .lobby-top .who h1{font-size:18px;line-height:1.1}
+html.embed .lobby-top .who p{font-size:12px;line-height:1.25}
+html.embed .lobby-top .row{margin-top:0;flex-wrap:nowrap;gap:6px}
+html.embed .lobby-top .row .cta{flex:1 1 auto;margin:0;white-space:nowrap}
+html.embed .lobby-top .row .ghost{flex:0 0 auto;white-space:nowrap}
+/* role reveal and votes */
+html.embed .kicker{font-size:11px;margin:0 0 6px;padding:2px 10px}
+html.embed .reveal-btn{min-height:96px;font-size:16px;border-radius:18px}
+html.embed .role{padding:12px;border-radius:18px}
+html.embed .role h2{font-size:28px}
+html.embed .role p,html.embed .role ul{font-size:13px}
+html.embed .role .role-art{width:72px;height:72px;margin:-6px -4px 0 4px}
+html.embed .vote{padding:10px}
+html.embed .vote h1{font-size:20px}
+html.embed .vote .sub{font-size:13px;margin:4px 0 8px}
+html.embed .vote-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+html.embed .vote-grid button{min-height:44px;font-size:14px;padding:4px 8px}
+html.embed .vote-grid button img{width:32px;height:32px}
+html.embed .ghost.wide{margin-top:8px}
+/* pad: joystick bottom left, Dhakka and Jump bottom right, emotes or traps between them */
+html.embed .pad{height:var(--padh);background:none;padding:0;grid-template-rows:1fr}
 html.embed .status{display:none}
-html.embed .stick{max-width:44vw}
-html.embed .stick p{color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
-html.embed .buttons{justify-self:end;width:min(320px,40vw)}
-html.embed .extras{left:auto;right:14px;width:min(440px,46vw)}
-html.embed .big{width:min(22dvh,120px)}
-html.embed .peek{top:auto;bottom:calc(min(54dvh,380px) + 6px);right:14px}
-html.embed .role-peek{left:auto;right:14px;width:min(420px,46vw)}
-html.embed .hostctl{left:auto;right:14px;width:min(440px,46vw);max-width:none}
-html.embed .toast{left:auto;right:14px;width:min(420px,46vw)}
-html.embed .msg,html.embed .card,html.embed .lobby-top,html.embed .vote{margin-top:0}
-html.embed .preview{height:140px}
+html.embed .stick{max-width:42vw}
+html.embed .stick p{display:none}
+html.embed .stick .base{width:var(--sb);height:var(--sb);margin:calc(var(--sb) / -2) 0 0 calc(var(--sb) / -2);border-width:3px}
+html.embed .stick .knob{width:calc(var(--sb) / 2);height:calc(var(--sb) / 2);margin:calc(var(--sb) / -4) 0 0 calc(var(--sb) / -4)}
+html.embed .buttons{justify-self:end;align-self:end;width:auto;display:flex;gap:clamp(8px,3vw,22px);align-items:flex-end;padding:0 clamp(10px,3vw,28px) clamp(8px,4dvh,22px) 0}
+html.embed .big{width:var(--bb)}
+html.embed .big.jump{margin-bottom:calc(var(--bb) * .45)}
+html.embed .big.dash{align-self:auto}
+html.embed .big span{font-size:clamp(12px,4dvh,16px)}
+html.embed .big.jump,html.embed .big.dash{box-shadow:0 5px 0 var(--plum)}
+html.embed .extras{left:50%;right:auto;transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom,0px));width:min(330px,34vw);gap:6px}
+html.embed .ex{min-height:32px;font-size:13px;border-radius:12px;box-shadow:0 3px 0 var(--plum)}
+html.embed .ex img{width:20px;height:20px}
+html.embed .peek{top:auto;bottom:calc(var(--padh) - 6px);right:8px;font-size:12px;min-height:28px;padding:2px 10px}
+html.embed .role-peek{left:auto;right:8px;top:calc(var(--top) + 4px);bottom:auto;width:min(360px,46vw)}
+html.embed .toast{left:auto;right:8px;top:calc(var(--top) + 4px);width:min(360px,46vw);font-size:14px;padding:6px 10px}
+/* host controls: main action first so it is never scrolled out of view */
+html.embed .hostctl{left:auto;right:8px;top:calc(var(--top) + 4px);width:min(380px,48vw);max-width:none;max-height:calc(100dvh - var(--top) - 12px);padding:8px 10px 10px;border-radius:18px;animation:none}
+html.embed .hc-head h2{font-size:18px}
+html.embed .hc-head .ghost{min-height:30px;font-size:13px}
+html.embed .hostctl .seg{margin-top:6px;gap:4px}
+html.embed .hostctl .seg button{font-size:12px;min-height:32px;padding:4px 8px;box-shadow:0 2px 0 var(--plum)}
+html.embed .hostctl .row{margin-top:6px}
+html.embed .hc-mode{margin-top:8px}
+@media (orientation:landscape) and (max-height:520px){
+ html.embed .pad,html.embed body.live .pad{height:var(--padh)}
+ html.embed .big{width:var(--bb)}
+}
+html.embed .swatches{grid-template-columns:repeat(10,1fr);gap:4px}
+html.embed .swatches button{min-height:0;box-shadow:inset 0 -3px 0 var(--d),0 2px 0 var(--plum);border-width:2px}
+html.embed .swatches button[aria-checked="true"]{outline-width:3px}
+html.embed .lobby-top .who p{display:none}
