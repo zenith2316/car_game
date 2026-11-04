@@ -8,7 +8,10 @@ import { buildWorldHQ } from './worldhq.js';
 import A, { loadAll } from './assets.js';
 
 const params = new URLSearchParams(location.search);
-const TAU = Math.PI * 2, BIG = 1.25;
+const TAU = Math.PI * 2, BIG = 1.0;
+/* Party-brawler camera: a wider lens, a lower angle and close framing that follows the players, instead of a
+   telephoto overview of the whole map. FOV is the play lens; EL_* are elevations above the floor in radians. */
+const FOV = 42, EL_PLAY = 0.7, EL_OVER = 0.86;
 function webglOk() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (_) { return false; } }
 
 function start() {
@@ -19,7 +22,7 @@ function start() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, 16 / 9, 20, 12000);
+  const camera = new THREE.PerspectiveCamera(FOV, 16 / 9, 20, 12000);
   const L = lightRig(scene, true);
   L.key.castShadow = true;
   Object.assign(L.key.shadow.camera, { left: -1150, right: 1150, top: 820, bottom: -820, near: 100, far: 4000 });
@@ -45,7 +48,7 @@ function start() {
 
   let world = null, map = null, mapId = '', overview = { cx: 800, cz: 450, d: 2000, w: 1600, h: 900 };
   const beans = new Map(); let heldCrown = null;
-  const cam = { tx: 800, ty: 0, tz: 450, d: 2000, yaw: 0, el: 0.92, shake: 0, punch: 0, fov: 30, init: false };
+  const cam = { tx: 800, ty: 0, tz: 450, d: 2000, yaw: 0, el: EL_OVER, shake: 0, punch: 0, fov: FOV, init: false };
 
   function dispose(obj) { obj.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); }
   let hq = false, lastDhakka = null, ownBackground = null;
@@ -79,9 +82,16 @@ function start() {
     if (world.dyn.crown) { heldCrown = world.dyn.crown.clone(); heldCrown.children = heldCrown.children.filter(c => !c.isSprite); heldCrown.scale.setScalar(0.85); heldCrown.visible = false; scene.add(heldCrown); }
     cam.init = false;
   }
-  function fitDistance(w, h) {
-    const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
-    return Math.max((w / 2) / Math.tan(hf / 2), (h * Math.sin(cam.el) * 0.9 + 120) / Math.tan(vf / 2) * 0.62) * 1.04;
+  function fitDistance(w, h, el = cam.el) {
+    const vf = FOV * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    return Math.max((w / 2) / Math.tan(hf / 2), (h * Math.sin(el) * 0.9 + 120) / Math.tan(vf / 2) * 0.62) * 1.04;
+  }
+  // frame a set of players closely: never tighter than a few body widths, never wider than the whole map
+  function follow(players, padX, padZ) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const p of players) { x0 = Math.min(x0, p[1]); x1 = Math.max(x1, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); }
+    const near = fitDistance(560, 300, EL_PLAY), far = fitDistance(overview.w + 120, overview.h + 120, EL_PLAY);
+    return { tx: (x0 + x1) / 2, tz: (z0 + z1) / 2 + 30, d: Math.max(near, Math.min(far, fitDistance(x1 - x0 + padX, z1 - z0 + padZ, EL_PLAY))) };
   }
   function resize() {
     const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
@@ -174,23 +184,21 @@ function start() {
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   function direct(o, dt, T) {
     const r = o.room, ph = r ? r.phase : 'lobby', age = o.phaseAge || 0;
-    let tx = overview.cx, tz = overview.cz, d = overview.d, yaw = Math.sin(T * 0.12) * 0.06, el = 0.92;
+    let tx = overview.cx, tz = overview.cz, d = overview.d, yaw = Math.sin(T * 0.12) * 0.06, el = EL_OVER;
     const players = (lastSnap.p || []).filter(p => !(p[8] & (2 | 4 | 8)));
     if (ph === 'intro') {
       const k = ease(Math.min(1, age / 5.5));
       let sx = overview.cx, sz = overview.cz; if (map && map.kind === 'race' && map.spawns) { sx = map.spawns.reduce((s, p) => s + p[0], 0) / map.spawns.length; sz = map.spawns.reduce((s, p) => s + p[1], 0) / map.spawns.length; }
-      tx = sx + (overview.cx - sx) * k; tz = sz + (overview.cz - sz) * k; d = overview.d * (0.42 + 0.58 * k); yaw = -0.9 * (1 - k); el = 0.5 + 0.42 * k;
-    } else if (ph === 'countdown') { d = overview.d * 0.92; }
-    else if (ph === 'play' && players.length) {
-      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, sx = 0, sz = 0;
-      for (const p of players) { x0 = Math.min(x0, p[1]); x1 = Math.max(x1, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); sx += p[1]; sz += p[2]; }
-      const blend = map && map.kind === 'race' ? 0.78 : 0.5;
-      tx = overview.cx + (((x0 + x1) / 2) - overview.cx) * blend; tz = overview.cz + (((z0 + z1) / 2) - overview.cz) * blend;
-      d = Math.max(overview.d * 0.5, Math.min(overview.d, fitDistance(x1 - x0 + 520, z1 - z0 + 420)));
+      tx = sx + (overview.cx - sx) * k; tz = sz + (overview.cz - sz) * k; d = overview.d * (0.42 + 0.58 * k); yaw = -0.9 * (1 - k); el = 0.5 + (EL_OVER - 0.5) * k;
+    } else if (['countdown', 'play', 'lobby'].includes(ph) && players.length) {
+      // follow the pack up close; a race looks a little ahead along the course
+      const f = follow(players, 340, 260); tx = f.tx; tz = f.tz; d = f.d; el = EL_PLAY; yaw = Math.sin(T * 0.12) * 0.04;
+      if (map && map.kind === 'race') tx += 70;
+      if (ph === 'countdown') d *= 1.06;
       if (focusQ && T < focusQ.until) { tx += (focusQ.x - tx) * 0.35; tz += (focusQ.y - tz) * 0.35; d *= 0.9; }
     } else if (ph === 'roundEnd') { yaw = Math.sin(age * 0.35) * 0.25; d = overview.d * 0.82; }
     else if (['panchayat', 'reveal', 'scores'].includes(ph)) { yaw = T * 0.05 % TAU; d = overview.d * 0.95; el = 0.78; }
-    else if (ph === 'finished') { tx = 800; tz = 520; d = overview.d * 0.68; el = 0.36; yaw = Math.sin(T * 0.25) * 0.14; }
+    else if (ph === 'finished') { tx = 800; tz = 520; d = overview.d * 0.98; el = 0.36; yaw = Math.sin(T * 0.25) * 0.14; }
     const k = cam.init ? 1 - Math.exp(-dt * (ph === 'intro' ? 6 : 2.4)) : 1; cam.init = true;
     cam.tx += (tx - cam.tx) * k; cam.tz += (tz - cam.tz) * k; cam.d += (d - cam.d) * k; cam.el += (el - cam.el) * k;
     let dy = yaw - cam.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; cam.yaw += dy * k;
@@ -199,7 +207,7 @@ function start() {
     const fy = ph === 'finished' ? 150 : 0;
     camera.position.set(cam.tx + Math.sin(cam.yaw) * Math.cos(cam.el) * cam.d + ox, fy + Math.sin(cam.el) * cam.d + oy, cam.tz + Math.cos(cam.yaw) * Math.cos(cam.el) * cam.d);
     camera.lookAt(cam.tx + ox * 0.3, fy, cam.tz);
-    const fov = 30 - cam.punch * 2.2; if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    const fov = FOV - cam.punch * 2.6; if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     L.key.target.position.set(cam.tx, 0, cam.tz); L.key.position.set(cam.tx - 420, 1300, cam.tz + 640);
   }
 

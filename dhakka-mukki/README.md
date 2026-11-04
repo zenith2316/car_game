@@ -33,6 +33,14 @@ Tap **Play too** on the host screen (in the lobby settings row, or the Host bar 
 - **Play on this screen:** a joystick, Jump and Dhakka buttons and your emotes or traps appear over the arena. Menus such as joining, your role and voting open in a side card. Your role stays hidden until you press and hold, the same as on a phone, so it works on the honour system. Host controls (rounds, Chupa Rustam, talk time, bots, start, pause, skip, end) move into a **Host** button in the corner. **Stop playing on this screen** gives the arena back.
 - **Use this device as my controller:** first open the display address on a TV or laptop, then this device becomes a normal phone controller with the same **Host** button. **Show the arena on this device** switches it back.
 
+Over the arena the controller stays out of the way: a small "Hold to see your role" pill, a compact vote list, and nothing during reveal and scores, which the arena already shows. On short screens (a phone in landscape) the arena's intro and Panchayat cards shrink to the essentials too.
+
+## Screen and camera (version 1.4)
+
+- The Android app runs full screen. The system bars hide (swipe from the edge to see them), and the native top bar only shows while the room starts. **Hotspot and QR** and **Stop hosting** are in the lobby's join card, and in the Host panel when the host plays on the screen.
+- The camera works like a party brawler: a 42° lens, about 40° above the floor, following the players closely and zooming out only as far as they spread. It used to be a 30° telephoto overview of the whole map.
+- Players are smaller against the maps (body radius 17 instead of 22), so paths are about 30% roomier. Tapri Dash has a wider belan bridge and rope bridge, slower belans, bigger thalis and one bumper fewer. Pankha's blades spin up a little slower.
+
 Both modes open the controller page with the host token, and the engine gives host rights to any connection that holds it, display or player.
 
 ## Architecture (reused from IKKP, upgraded for real time)

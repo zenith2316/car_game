@@ -20,7 +20,9 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -36,12 +38,13 @@ import android.window.OnBackInvokedDispatcher;
 
 import java.util.List;
 
-/** Host screen: a thin native bar (Connect / Stop) above the full game display served by HostingService. */
+/** Host screen: the full-screen game display served by HostingService. A thin native bar shows only while the room
+ *  starts; after that Connect players and Stop live in the game's own UI, through the DhakkaHost bridge. */
 public class MainActivity extends Activity {
     static final int PERMISSION_WIFI = 30, PERMISSION_NOTIFY = 31;
     static final int NIGHT = Color.rgb(28, 11, 51), CREAM = Color.rgb(255, 244, 220), HALDI = Color.rgb(255, 194, 26);
 
-    private LinearLayout layout;
+    private LinearLayout layout, bar;
     private TextView status;
     private WebView display;
     private HostingService hosting;
@@ -63,7 +66,7 @@ public class MainActivity extends Activity {
         layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setBackgroundColor(NIGHT);
-        LinearLayout bar = new LinearLayout(this);
+        bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(14), dp(2), dp(6), dp(2));
         bar.setBackgroundColor(NIGHT);
@@ -87,7 +90,8 @@ public class MainActivity extends Activity {
             getWindow().setDecorFitsSystemWindows(false);
             layout.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
                 @Override public WindowInsets onApplyWindowInsets(View v, WindowInsets in) {
-                    Insets i = in.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    // system bars are hidden while playing, so only keep clear of a camera cutout
+                    Insets i = in.getInsets(display != null ? WindowInsets.Type.displayCutout() : WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
                     v.setPadding(i.left, i.top, i.right, i.bottom);
                     return in;
                 }
@@ -99,6 +103,27 @@ public class MainActivity extends Activity {
             });
         }
         startHost();
+    }
+
+    /* Immersive: the arena gets the whole screen. A swipe from the edge shows the system bars for a moment. */
+    private void immersive() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) { c.hide(WindowInsets.Type.systemBars()); c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
+        if (Build.VERSION.SDK_INT >= 28) { WindowManager.LayoutParams lp = getWindow().getAttributes(); lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES; getWindow().setAttributes(lp); }
+        layout.requestApplyInsets();
+    }
+
+    @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if (focus && display != null) immersive(); }
+
+    /** Called from the host's game UI (display page or the host's embedded controller). Only local pages load here. */
+    final class HostBridge {
+        @JavascriptInterface public void connect() { main.post(new Runnable() { @Override public void run() { if (!closed) showInvite(); } }); }
+        @JavascriptInterface public void stop() { main.post(new Runnable() { @Override public void run() { if (!closed) confirmStop(); } }); }
     }
 
     private Button barButton(String text, boolean primary, View.OnClickListener l) {
@@ -156,6 +181,9 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return !LocalOrigin.allows(r.getUrl().toString(), HostingService.PORT); }
         });
         display.setWebChromeClient(new android.webkit.WebChromeClient());
+        display.addJavascriptInterface(new HostBridge(), "DhakkaHost");
+        bar.setVisibility(View.GONE);
+        immersive();
         layout.addView(display, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         display.loadUrl("http://127.0.0.1:" + HostingService.PORT + "/display#host=" + token);
     }

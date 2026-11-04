@@ -315,6 +315,7 @@ function renderOverlay() {
           <p class="url">${url ? esc(url) : 'Open the Wi-Fi menu on the host phone for the address'}</p>
           <p class="hint">Same Wi-Fi as this screen. No app needed, any phone browser works.</p>
           ${app.host ? '<button class="btn play" data-act="playtoo">Host, play too!</button>' : ''}
+          ${app.host && window.DhakkaHost ? '<p class="hostlinks"><button data-act="native-connect">Hotspot and QR</button><button data-act="native-stop">Stop hosting</button></p>' : ''}
         </aside>
         <footer class="dock">
           ${playerChips(r)}
@@ -426,6 +427,8 @@ addEventListener('message', e => { if (e.origin === location.origin && e.data &&
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
+  if (a === 'native-connect') { try { window.DhakkaHost.connect(); } catch (_) {} return; }
+  if (a === 'native-stop') { try { window.DhakkaHost.stop(); } catch (_) {} return; }
   if (a === 'playtoo') { playMenu(); return; }
   if (a === 'play-here') { playHere(); return; }
   if (a === 'play-ctrl') { closeMenu(); location.href = '/#host=' + encodeURIComponent(hostToken); return; }

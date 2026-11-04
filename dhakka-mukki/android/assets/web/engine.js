@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const W = 1600, H = 900, STEP = 1 / 60, R = 22;
+const W = 1600, H = 900, STEP = 1 / 60, R = 17; // body radius: small against the maps so paths feel roomy
 const MAXS = 330, ACC = 11, G = 1700, JUMPV = 560, DASHV = 440, DASH_T = 0.22, DASH_CD = 1.1;
 const KNOCK = 560, STUN_HIT = 0.6, SEATS = 10, BLAME_WINDOW = 3.5;
 const NAMES = ['Bunty', 'Pinky', 'Golu', 'Chintu', 'Sweety', 'Pappu', 'Munna', 'Dolly', 'Raju', 'Tinku', 'Babli', 'Lalli'];
@@ -55,30 +55,30 @@ const MAPS = {
     blurb: 'Race to the chai tapri. Dodge the belans, ride the thalis or take the slow rope.',
     floors: [
       { t: 'rect', x: 40, y: 250, w: 230, h: 400 },      // start pad
-      { t: 'rect', x: 268, y: 385, w: 360, h: 130 },     // belan bridge
+      { t: 'rect', x: 268, y: 360, w: 360, h: 180 },     // belan bridge
       { t: 'rect', x: 626, y: 190, w: 200, h: 520 },     // island 1
-      { t: 'rect', x: 700, y: 120, w: 126, h: 80 },      // ledge up to the rope
-      { t: 'rect', x: 824, y: 120, w: 270, h: 56 },      // rope bridge (slow, top)
-      { t: 'rect', x: 1092, y: 120, w: 216, h: 580 },    // island 2
+      { t: 'rect', x: 700, y: 104, w: 126, h: 96 },      // ledge up to the rope
+      { t: 'rect', x: 824, y: 104, w: 270, h: 80 },      // rope bridge (slow, top)
+      { t: 'rect', x: 1092, y: 104, w: 216, h: 596 },    // island 2
       { t: 'rect', x: 1306, y: 330, w: 260, h: 240 }     // final run + tapri
     ],
     plats: [
-      { x: 0, y: 0, w: 116, h: 116, ax: 846, ay: 250, bx: 846, by: 590, period: 4.2, phase: 0 },
-      { x: 0, y: 0, w: 116, h: 116, ax: 966, ay: 590, bx: 966, by: 250, period: 4.2, phase: 0 }
+      { x: 0, y: 0, w: 128, h: 128, ax: 840, ay: 244, bx: 840, by: 584, period: 4.6, phase: 0 },
+      { x: 0, y: 0, w: 128, h: 128, ax: 964, ay: 584, bx: 964, by: 244, period: 4.6, phase: 0 }
     ],
     conveyors: [
-      { x: 824, y: 120, w: 270, h: 56, vx: -95, vy: 0 },
+      { x: 824, y: 104, w: 270, h: 80, vx: -80, vy: 0 },
       { x: 1306, y: 330, w: 170, h: 240, vx: -110, vy: 0 }
     ],
     walls: [], movers: [{ x: 0, y: 0, w: 34, h: 120, ax: 1400, ay: 330, bx: 1400, by: 450, period: 2.6, phase: 0 }],
-    bumpers: [{ x: 1160, y: 270, r: 34 }, { x: 1240, y: 420, r: 34 }, { x: 1160, y: 560, r: 34 }, { x: 1250, y: 640, r: 30 }],
+    bumpers: [{ x: 1150, y: 260, r: 30 }, { x: 1250, y: 420, r: 30 }, { x: 1150, y: 570, r: 30 }],
     sweepers: [
-      { x: 360, y: 450, len: 112, w: 24, arms: 2, speed: 2.3, h: 44 },
-      { x: 530, y: 450, len: 112, w: 24, arms: 2, speed: -2.7, h: 44 }
+      { x: 360, y: 450, len: 112, w: 22, arms: 2, speed: 1.7, h: 44 },
+      { x: 535, y: 450, len: 112, w: 22, arms: 2, speed: -2.0, h: 44 }
     ],
     checkpoints: [
       { x: 626, y: 190, w: 200, h: 520, sx: 690, sy: 450 },
-      { x: 1092, y: 120, w: 216, h: 580, sx: 1150, sy: 380 }
+      { x: 1092, y: 104, w: 216, h: 596, sx: 1150, sy: 380 }
     ],
     finish: { x: 1486, y: 330, w: 80, h: 240 },
     spawns: grid(150, 450, 2, 5, 80, 78), trapName: 'Ulta',
@@ -103,7 +103,7 @@ const MAPS = {
     floors: [{ t: 'circ', x: 800, y: 470, r: 390 }],
     plats: [], conveyors: [], walls: [], movers: [], bumpers: [],
     sweepers: [
-      { x: 800, y: 470, len: 380, w: 30, arms: 3, speed: 1.15, h: 46, ramp: 0.026 },
+      { x: 800, y: 470, len: 380, w: 28, arms: 3, speed: 1.0, h: 46, ramp: 0.022 },
       { x: 800, y: 470, len: 150, w: 34, arms: 2, speed: -1.6, h: 999, ramp: 0.018 }
     ],
     spawns: ring(800, 470, 245, 10), trapName: 'Ulta'

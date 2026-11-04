@@ -221,3 +221,15 @@ body.hostplays .hostset,body.hostplays .podium .row,body.hostplays .chip .x{disp
    (the native Connect players button still shows the join QR) */
 body.hostplays .lobby .brand p,body.hostplays .lobby .join,body.hostplays .lobby .dock{display:none}
 body.hostplays .lobby .brand{transform:scale(.62);transform-origin:top left}
+.hostlinks{display:flex;gap:calc(8 * var(--u));justify-content:center;margin-top:calc(10 * var(--u))}
+.hostlinks button{font-size:calc(15 * var(--u));font-weight:800;color:var(--plum);background:#FFFFFF;border:calc(3 * var(--u)) solid var(--plum);border-radius:999px;padding:calc(5 * var(--u)) calc(14 * var(--u))}
+/* short screens (a phone in landscape): menus shrink to the essentials so the arena stays visible */
+@media (max-height:520px){
+ .intro{top:auto;bottom:calc(30 * var(--u));width:calc(1100 * var(--u));margin-left:calc(-550 * var(--u));padding:calc(18 * var(--u)) calc(36 * var(--u))}
+ .intro .cardart,.intro .blurb,.intro .controls{display:none}
+ .intro .title{font-size:calc(84 * var(--u));margin-top:calc(4 * var(--u))}
+ .intro .goal,.intro .secret{font-size:calc(30 * var(--u))}
+ .panch .blurb,.panch .stats{display:none}
+}
+body.hostplays .panch{right:calc(min(270px,36vw) + 16px)}
+body.hostplays .panch .blurb{display:none}

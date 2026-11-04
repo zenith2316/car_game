@@ -136,8 +136,21 @@ const SCREENS = {
   waiting: () => '<section class="msg"><h1>You are in</h1><p>A round is running. You join from the next one. Watch the big screen and spot the saboteur.</p></section>',
   wait: () => '<section class="msg"><h1>Hold tight</h1></section>'
 };
-let holdHide = null;
 ['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, () => { if (holdHide) holdHide(); }));
+/* Over the arena, the host only needs the essentials: a small hold-to-peek pill, a compact vote list, and nothing
+   for the phases the arena already explains (reveal, scores, waiting). */
+if (EMBED) Object.assign(SCREENS, {
+  intro: () => `<section class="mini-wrap"><button class="reveal-btn mini" data-hold="role" type="button">Hold to see your role</button><div id="role-slot" hidden>${roleCard(app.me)}</div></section>`,
+  panchayat: () => {
+    const me = app.me, r = app.room, others = r.players.filter(p => !p.waiting && p.id !== me.id);
+    if (me.vote) { const t = r.players.find(p => p.id === me.vote); return `<section class="mini-wrap"><p class="pill">${me.vote === 'skip' ? 'You skipped the vote' : 'You blamed <b>' + esc(t ? t.name : 'someone') + '</b>'}</p></section>`; }
+    return `<section class="vote mini"><h1>Who is the Rustam?</h1>
+      <div class="vote-grid">${others.map(p => `<button data-vote="${p.id}" style="--pc:${A.COLORS[p.color].fill}"><img src="${avatar(p.color, p.look, 32)}" width="24" height="24" alt=""><span>${esc(p.name)}</span></button>`).join('')}<button data-vote="skip" class="skip"><span>Skip</span></button></div></section>`;
+  },
+  finished: () => `<section class="mini-wrap"><p class="pill">#${app.me.rank} with ${app.me.score} pts</p>${app.host ? '<div class="row mini-row"><button class="cta" data-act="h-start">Play again</button><button class="ghost" data-act="h-lobby">Lobby</button></div>' : ''}</section>`,
+  reveal: () => '', scores: () => '', waiting: () => '', wait: () => ''
+});
+let holdHide = null;
 function afterRender() {
   holdHide = null;
   setTimeout(livePreview, 0);
@@ -170,6 +183,8 @@ document.addEventListener('click', e => {
 });
 
 /* ---------- host controls ---------- */
+// the Android host app exposes Connect players and Stop to its own pages (the arena, and this frame inside it)
+function nativeHost() { try { return window.DhakkaHost || (parent !== window && parent.DhakkaHost) || null; } catch (_) { return null; } }
 function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
 function hostAct(a, b) {
   if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostKey = ''; renderHost(); return; }
@@ -180,6 +195,7 @@ function hostAct(a, b) {
     try { parent.postMessage({ dm: 'close' }, location.origin); } catch (_) {}
     return;
   }
+  if (a === 'connect' || a === 'stophost') { const n = nativeHost(); try { if (n) a === 'connect' ? n.connect() : n.stop(); } catch (_) {} return; }
   if (a === 'arena') { location.href = '/display#host=' + encodeURIComponent(hostToken); return; }
   if (a === 'start' || a === 'lobby') { app.hostOpen = false; app.hostKey = ''; }
   hostDo(a);
@@ -199,6 +215,7 @@ function renderHost() {
        ${seg('saboteurs', [[1, 'Chupa Rustam on', s.saboteurs], [0, 'Off', !s.saboteurs]])}
        ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}`
     : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
+    + (nativeHost() ? '<div class="row hc-native"><button class="ghost small" data-act="h-connect">Hotspot and QR</button><button class="ghost small" data-act="h-stophost">Stop hosting</button></div>' : '')
     + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
 }
 
