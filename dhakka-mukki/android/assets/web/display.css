@@ -233,3 +233,12 @@ body.hostplays .lobby .brand{transform:scale(.62);transform-origin:top left}
 }
 body.hostplays .panch{right:calc(min(270px,36vw) + 16px)}
 body.hostplays .panch .blurb{display:none}
+/* host's game picker */
+.games-card{width:min(860px,100%)}
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(170 * var(--u) + 60px),1fr));gap:calc(10 * var(--u))}
+.game-t{display:flex;flex-direction:column;align-items:center;gap:2px;padding:calc(10 * var(--u)) 6px;background:#FFFFFF;border:var(--line);border-radius:calc(18 * var(--u));box-shadow:0 calc(4 * var(--u)) 0 var(--plum);color:var(--plum);opacity:.55}
+.game-t[aria-pressed="true"]{background:#E2FFD6;opacity:1}
+.game-t i{font-style:normal;font-size:calc(34 * var(--u) + 6px)}
+.game-t b{font-size:calc(19 * var(--u) + 4px)}
+.game-t small{font-size:calc(13 * var(--u) + 3px);color:#6A4C8C}
+.gm-row{justify-content:center;flex-wrap:wrap;gap:calc(12 * var(--u))}

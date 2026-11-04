@@ -3,7 +3,7 @@
 'use strict';
 (() => {
 const $ = (s, r = document) => r.querySelector(s);
-const A = window.DArt;
+const A = window.DArt, D = window.Dhakka;
 const ls = { get(k) { try { return localStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { localStorage.setItem('dm.' + k, v); } catch (_) {} } };
 const ss = { get(k) { try { return sessionStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { sessionStorage.setItem('dm.' + k, v); } catch (_) {} } };
 /* The host can play too: either embedded over the arena on the host screen (?embed=1) or with this page as the
@@ -16,7 +16,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const app = {
   ws: null, host: false, hostKey: '', hostOpen: false, token: ls.get('player'), id: null, me: null, room: null, screenKey: '', retry: 500, meAt: 0,
   pick: { name: ls.get('name'), color: Number(ls.get('color') || -1), look: Number(ls.get('look') || 0) }, picking: false, joining: false,
-  inp: { x: 0, y: 0, j: 0, d: 0 }, sentAt: 0, sentKey: '', avatars: new Map(), role: null
+  inp: { x: 0, y: 0, j: 0, d: 0, f: 0 }, snaps: [], mapId: '', povAt: 0, phaseSeenAt: performance.now(), sentAt: 0, sentKey: '', avatars: new Map(), role: null
 };
 const PAD_PHASES = ['lobby', 'countdown', 'play', 'roundEnd', 'finished'];
 
@@ -46,7 +46,14 @@ function onMessage(m) {
     if (m.id) { app.token = m.token; ls.set('player', m.token); }
     else { app.token = ''; ls.set('player', ''); app.me = null; }
     render();
-  } else if (m.t === 'room') { app.room = m; render(); }
+  } else if (m.t === 'room') {
+    if (!app.room || app.room.phase !== m.phase) app.phaseSeenAt = performance.now();
+    app.room = m; if (R3 && D && m.map.id !== app.mapId) { app.mapId = m.map.id; app.snaps = []; R3.setMap(D.buildMap(m.map.id), D); }
+    render();
+  } else if (m.t === 's') {
+    if (m.p) { app.snaps.push({ at: performance.now(), s: m }); while (app.snaps.length > 10) app.snaps.shift(); }
+    if (R3 && povLive()) for (const f of m.fx || []) R3.fx(f);
+  }
   else if (m.t === 'me') {
     const was = app.me; app.me = m; app.meAt = performance.now();
     if (m.role && (!was || was.role !== m.role || was.phase !== m.phase) && m.phase === 'intro') buzz([30, 60, 30]);
@@ -76,7 +83,7 @@ function render() {
   else {
     const ph = me.waiting ? 'waiting' : me.phase;
     screen = SCREENS[ph] || SCREENS.wait;
-    key = ph + ':' + app.host + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
+    key = ph + ':' + app.host + ':' + povWanted() + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
   }
   const showPad = !!me && !app.picking && !me.waiting && PAD_PHASES.includes(me.phase);
   document.body.classList.toggle('playing', showPad);
@@ -113,12 +120,15 @@ function pickScreen() {
 }
 const roleCard = me => {
   if (me.role === 'saboteur') return `<div class="role sab"><img class="role-art" src="/assets/ui/role_rustam.webp" alt=""><small>Your secret role</small><h2>Chupa Rustam</h2><p>Make others fall without getting caught. Every fall you cause is a point, if the Panchayat does not catch you.</p><ul><li><b>Kela</b> drops a banana peel behind you</li><li><b>Bhookamp</b> shoves everyone near you</li><li><b>${esc((me.traps || [])[2] || 'Ulta')}</b> ${me.map === 'survive' && (me.traps || [])[2] === 'Crack' ? 'cracks the papads around you' : 'reverses and speeds up the course'}</li></ul>${me.partners.length ? `<p class="partner">Your partner: <b>${me.partners.map(esc).join(', ')}</b></p>` : ''}<p class="warn">Act normal. Run the course too.</p></div>`;
+  if (me.role === 'police') return '<div class="role police"><small>Chor Police</small><h2>Police</h2><p>Catch the Chors with a dhakka. Every Chor you catch joins the Police. Your siren flashes so everyone knows.</p></div>';
+  if (me.role === 'chor') return '<div class="role chor"><small>Chor Police</small><h2>Chor</h2><p>Run! A Police dhakka catches you. Stay free until the whistle to score big. Dhakka a cop to push them away.</p></div>';
+  if (me.role === 'boxer') return '<div class="role boxer"><small>Akhada Brawl</small><h2>Boxer</h2><p>Dhakka throws a punch. Drain health and they faint. Fainted boxers can be thrown over the ropes. Rest to heal a little.</p></div>';
   if (me.role === 'king') return '<div class="role king"><img class="role-art" src="/assets/ui/role_king.webp" alt=""><small>Final round</small><h2>Dhakka King</h2><p>No saboteurs. Grab the mukut and hold it. Every dhakka knocks it loose.</p></div>';
   return '<div class="role racer"><img class="role-art" src="/assets/ui/role_racer.webp" alt=""><small>Your secret role</small><h2>Racer</h2><p>Qualify for points. Somebody is sabotaging. Watch who drops peels, who shoves, who is always nearby when people fall.</p></div>';
 };
 const SCREENS = {
   lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. ${app.host ? 'You are the host. Add bots or change rounds under Host.' : 'The host starts the match.'}</p></div></div>
-    <div class="row">${app.host ? `<button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>` : `<button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button>`}<button class="ghost" data-act="pick">Change look</button><button class="ghost small" data-act="leave">Leave</button></div></section>`; },
+    <div class="row">${app.host ? `<button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>` : `<button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button>`}<button class="ghost" data-act="pick">Change look</button>${!EMBED && glOk ? `<button class="ghost small" data-act="pov" aria-pressed="${povWanted()}">3D view ${povWanted() ? 'on' : 'off'}</button>` : ''}<button class="ghost small" data-act="leave">Leave</button></div></section>`; },
   intro: () => { const me = app.me; return `<section class="intro-phone"><p class="kicker">Round ${app.room.round} · ${esc(app.room.map.name)}</p><button class="reveal-btn" data-hold="role" type="button"><span>Press and hold to see your role</span><small>Hide your screen from your neighbours</small></button><div id="role-slot" hidden>${roleCard(me)}</div></section>`; },
   countdown: () => '',
   play: () => '',
@@ -179,6 +189,7 @@ document.addEventListener('click', e => {
   else if (a === 'pick') { app.picking = true; app.pick.color = app.me.color; app.pick.look = app.me.look; render(); }
   else if (a === 'cancelpick') { app.picking = false; app.screenKey = ''; render(); }
   else if (a === 'savelook') { send({ t: 'look', color: app.pick.color, look: app.pick.look }); ls.set('color', app.pick.color); ls.set('look', app.pick.look); app.picking = false; app.screenKey = ''; render(); }
+  else if (a === 'pov') { ls.set('pov', povWanted() ? 'off' : 'on'); app.screenKey = ''; if (povWanted()) loadPov(); render(); }
   else if (a === 'leave') { if (confirm('Leave the mela? Your spot opens for someone else.')) { send({ t: 'leave' }); } }
 });
 
@@ -188,7 +199,8 @@ function nativeHost() { try { return window.DhakkaHost || (parent !== window && 
 function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
 function hostAct(a, b) {
   if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostKey = ''; renderHost(); return; }
-  if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); return; }
+  if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' || k === 'powerups' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); return; }
+  if (a === 'game') { const st = app.room.settings, id = b.dataset.id, games = st.games.includes(id) ? st.games.filter(g => g !== id) : st.games.concat(id); if (!games.length) { toast('Keep at least one game.'); return; } hostDo('settings', { settings: { games } }); return; }
   if (a === 'end') { if (confirm('End the match now and show the podium?')) hostDo('end'); return; }
   if (a === 'screen') { // stop playing on the host screen and give the arena back
     const r = app.room; if (r && ['lobby', 'finished'].includes(r.phase) && app.id) send({ t: 'leave' });
@@ -205,7 +217,7 @@ function renderHost() {
   btn.hidden = !app.host; if (!app.host || !r) { panel.hidden = true; return; }
   const idle = ['lobby', 'finished'].includes(r.phase), s = r.settings;
   btn.classList.toggle('on', app.hostOpen);
-  const key = [app.hostOpen, r.phase, r.paused, s.rounds, s.saboteurs, s.talk, r.players.length].join('|');
+  const key = [app.hostOpen, r.phase, r.paused, s.rounds, s.saboteurs, s.talk, s.powerups, (s.games || []).join(), r.players.length].join('|');
   if (key === app.hostKey) return; app.hostKey = key;
   panel.hidden = !app.hostOpen; if (!app.hostOpen) return;
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label, on]) => `<button data-act="h-set" data-k="${k}" data-v="${v}" aria-pressed="${on}">${label}</button>`).join('')}</div>`;
@@ -213,7 +225,9 @@ function renderHost() {
     ? `<div class="row"><button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.phase === 'finished' ? 'Play again' : r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button><button class="ghost" data-act="h-addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button></div>
        ${seg('rounds', [3, 5, 7].map(n => [n, n + ' rounds', s.rounds === n]))}
        ${seg('saboteurs', [[1, 'Chupa Rustam on', s.saboteurs], [0, 'Off', !s.saboteurs]])}
-       ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}`
+       ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}
+       ${seg('powerups', [[1, 'Power-ups on', s.powerups], [0, 'Off', !s.powerups]])}
+       ${r.catalog ? `<p class="hc-label">Games this match</p><div class="seg games">${r.catalog.map(g => `<button data-act="h-game" data-id="${g.id}" aria-pressed="${s.games.includes(g.id)}">${esc(g.name)}</button>`).join('')}</div>` : ''}`
     : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
     + (nativeHost() ? '<div class="row hc-native"><button class="ghost small" data-act="h-connect">Hotspot and QR</button><button class="ghost small" data-act="h-stophost">Stop hosting</button></div>' : '')
     + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
@@ -232,6 +246,54 @@ function livePreview() {
     document.body.classList.add('gl');
   } catch (_) { document.body.classList.remove('gl'); window.DPortrait = null; }
 }
+
+/* ---------- your own camera ----------
+   The big-screen renderer runs here too, following your character at the same angle and height as the big screen's
+   close shot. It shows while you can move (lobby, rounds, podium). Light graphics: no HD pack, just the character. */
+let R3 = null;
+const glOk = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (_) { return false; } })();
+function povWanted() { return ls.get('pov') !== 'off'; }
+function povLive() { const me = app.me; return !!(R3 && me && povWanted() && !app.picking && !me.waiting && PAD_PHASES.includes(me.phase)); }
+let povLoading = false;
+function loadPov() {
+  if (EMBED || !glOk || !D || povLoading || R3) return; povLoading = true;
+  window.DM3D_OPTS = { phone: true, follow: () => app.me ? app.me.color : -1, offsetY: () => app.povOff || 0 };
+  document.addEventListener('dm3d-ready', () => { if (!window.DRender3D || R3) return; R3 = window.DRender3D; app.mapId = ''; if (app.room) { app.mapId = app.room.map.id; R3.setMap(D.buildMap(app.room.map.id), D); } }, { once: false });
+  import('/display3d.js').catch(() => { povLoading = false; });
+}
+const DELAY = 70;
+function lerpAng(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
+function sampleSnap(now) {
+  const sn = app.snaps; if (!sn.length) return {};
+  const t = now - DELAY; let i = sn.length - 1; while (i > 0 && sn[i - 1].at > t) i--;
+  const b = sn[i], a = sn[Math.max(0, i - 1)]; if (a === b || b.at <= t) return sn[sn.length - 1].s;
+  const k = Math.max(0, Math.min(1, (t - a.at) / (b.at - a.at))), out = Object.assign({}, b.s), prev = new Map((a.s.p || []).map(p => [p[0], p]));
+  out.p = (b.s.p || []).map(p => { const q = prev.get(p[0]); if (!q || Math.hypot(q[1] - p[1], q[2] - p[2]) > 120) return p; const r = p.slice(); r[1] = q[1] + (p[1] - q[1]) * k; r[2] = q[2] + (p[2] - q[2]) * k; r[3] = q[3] + (p[3] - q[3]) * k; r[6] = lerpAng(q[6] / 100, p[6] / 100, k) * 100; return r; });
+  if (b.s.sw && a.s.sw && a.s.sw.length === b.s.sw.length) out.sw = b.s.sw.map((v, j) => lerpAng(a.s.sw[j] / 1000, v / 1000, k) * 1000);
+  for (const key of ['pl', 'mv', 'bu']) if (b.s[key] && a.s[key] && a.s[key].length === b.s[key].length) out[key] = b.s[key].map((v, j) => [a.s[key][j][0] + (v[0] - a.s[key][j][0]) * k, a.s[key][j][1] + (v[1] - a.s[key][j][1]) * k]);
+  return out;
+}
+function povOffset() {
+  const h = innerHeight; if (innerWidth > innerHeight) return 0;
+  const pad = $('#pad'), scr = $('#screen'), live = document.body.classList.contains('live');
+  const bottom = pad.hidden ? h : pad.getBoundingClientRect().top + 40;
+  let top = 56; if (!live && scr.firstElementChild) top = Math.max(top, scr.firstElementChild.getBoundingClientRect().bottom);
+  return Math.max(-0.2, Math.min(0.4, 0.5 - (top + bottom) / 2 / h));
+}
+const povEmotes = new Map(); let povLast = performance.now();
+function povFrame(now) {
+  requestAnimationFrame(povFrame);
+  const live = povLive(), cv = $('#gl');
+  if (cv.hidden === live) { cv.hidden = !live; document.body.classList.toggle('pov', live); if (live && R3.resize) R3.resize(); }
+  // upright phones: centre your character in the clear strip between the top card and the thumb pad
+  if (live) { const off = povOffset(); if (Math.abs(off - (app.povOff || 0)) > 0.02) { app.povOff = off; R3.resize(); } }
+  // landscape with your own view: the same corner layout as the host playing over the arena
+  const wide = live && innerWidth > innerHeight; if (!EMBED && document.documentElement.classList.contains('embed') !== wide) document.documentElement.classList.toggle('embed', wide);
+  if (!live) { povLast = now; return; }
+  const dt = Math.min(0.05, (now - povLast) / 1000); povLast = now;
+  R3.render({ cur: sampleSnap(now), room: app.room, dt, T: now / 1000, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D, emotes: povEmotes, now });
+}
+requestAnimationFrame(povFrame);
 
 /* ---------- controller pad ---------- */
 const stick = $('#stick'), knob = $('.knob', stick), base = $('.base', stick);
@@ -256,17 +318,18 @@ stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointerca
 function press(el, fn) { el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('down'); fn(); buzz(10); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, () => el.classList.remove('down'))); el.addEventListener('contextmenu', e => e.preventDefault()); }
 press($('#b-jump'), () => { app.inp.j++; pushInput(true); });
 press($('#b-dash'), () => { app.inp.d++; pushInput(true); });
+press($('#b-fire'), () => { app.inp.f++; pushInput(true); buzz(20); });
 function pushInput(force) {
-  const now = performance.now(), i = app.inp, key = [i.x.toFixed(2), i.y.toFixed(2), i.j, i.d].join();
+  const now = performance.now(), i = app.inp, key = [i.x.toFixed(2), i.y.toFixed(2), i.j, i.d, i.f].join();
   if (!force && key === app.sentKey && now - app.sentAt < 250) return;
   if (!force && now - app.sentAt < 30) return;
-  if (send({ t: 'in', x: +i.x.toFixed(3), y: +i.y.toFixed(3), j: i.j, d: i.d })) { app.sentAt = now; app.sentKey = key; }
+  if (send({ t: 'in', x: +i.x.toFixed(3), y: +i.y.toFixed(3), j: i.j, d: i.d, f: i.f })) { app.sentAt = now; app.sentKey = key; }
 }
 setInterval(() => { if (!$('#pad').hidden) pushInput(false); }, 33);
 // keyboard for laptops: WASD or arrows, Space jump, Shift or K dhakka, 1 2 3 traps or emotes
 const keys = new Set();
 function keyVec() { const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0), y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0), l = Math.hypot(x, y) || 1; if (stickId === null) { app.inp.x = x / l; app.inp.y = y / l; pushInput(true); } }
-addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || $('#pad').hidden) return; const k = e.key.toLowerCase(); if (e.repeat) return; if (k === ' ') { app.inp.j++; pushInput(true); e.preventDefault(); } else if (k === 'shift' || k === 'k') { app.inp.d++; pushInput(true); } else if (['1', '2', '3'].includes(k)) extra(Number(k) - 1); else { keys.add(k); keyVec(); } });
+addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || $('#pad').hidden) return; const k = e.key.toLowerCase(); if (e.repeat) return; if (k === ' ') { app.inp.j++; pushInput(true); e.preventDefault(); } else if (k === 'shift' || k === 'k') { app.inp.d++; pushInput(true); } else if (k === 'f' || k === 'l') { app.inp.f++; pushInput(true); } else if (['1', '2', '3'].includes(k)) extra(Number(k) - 1); else { keys.add(k); keyVec(); } });
 addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); if (!$('#pad').hidden) keyVec(); });
 
 function extra(k) { const me = app.me; if (!me) return; if (me.role === 'saboteur' && me.phase === 'play') { send({ t: 'trap', k }); buzz(25); } else send({ t: 'emote', k }); }
@@ -291,8 +354,12 @@ function updatePad() {
   else if (me.map === 'race') msg = 'Run! Reach the tapri.';
   else if (me.map === 'survive') msg = 'Stay on the floor!';
   else if (me.map === 'crown') msg = 'Grab the mukut!';
-  if (st.textContent !== msg) st.textContent = msg; st.className = 'status ' + cls + (sab ? ' sab' : '');
-  $('#peek').hidden = !me.role || me.role === 'king';
+  else if (me.map === 'brawl') { msg = me.faint > 0 ? 'You fainted! Hold on…' : 'Punch with Dhakka!'; cls = me.faint > 0 ? 'bad' : ''; }
+  else if (me.map === 'tag') msg = me.role === 'police' ? 'Catch the Chors!' : 'Run, Chor, run!';
+  if (me.map === 'brawl' && ['play', 'countdown'].includes(me.phase) && me.st !== 'out') msg = `<i class="hp"><b style="width:${Math.max(0, me.hp)}%"></b></i> ` + esc(msg);
+  if (st.dataset.v !== msg) { st.dataset.v = msg; st.innerHTML = msg.includes('<i class="hp">') ? msg : esc(msg); } st.className = 'status ' + cls + (sab ? ' sab' : '');
+  $('#peek').hidden = !me.role || !['saboteur', 'racer'].includes(me.role);
+  const fire = $('#b-fire'), armed = me.ammo > 0 && ['play', 'lobby', 'finished'].includes(me.phase); fire.hidden = !armed; if (armed) $('#ammo').textContent = me.ammo;
 }
 // cooldown rings for traps
 function cdLoop() {
@@ -308,4 +375,5 @@ peek.addEventListener('pointerdown', e => { e.preventDefault(); if (app.me) { rp
 document.addEventListener('visibilitychange', () => { if (document.hidden) { app.inp.x = app.inp.y = 0; pushInput(true); } });
 document.addEventListener('dm3d-ready', () => { app.avatars.clear(); app.screenKey = ''; render(); });
 connect();
+if (!EMBED && povWanted()) loadPov();
 })();

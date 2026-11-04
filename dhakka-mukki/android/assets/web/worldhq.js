@@ -2,7 +2,7 @@
    Produces the same "dyn" structure as world3d.js so updateWorld() animates both. Engine (x, y, z) maps to (X, Z, Y). */
 import * as THREE from './vendor/three.js';
 import A, { prop, propMesh, SKIES } from './assets.js';
-import { THEMES } from './world3d.js';
+import { THEMES, wrapStage, ringRopes, ropeArm } from './world3d.js';
 const TAU = Math.PI * 2;
 
 const FLOOR = { aangan: 'terracotta', tapri: 'foam', papad: null, pankha: 'marble', king: 'gold' };
@@ -38,6 +38,7 @@ export function buildWorldHQ(map, Dhakka) {
   const fl = FLOOR[map.theme];
   // ---- floors on floating rock islands
   map.floors.forEach((f, i) => {
+    const before = root.children.length;
     const col = fl === 'foam' ? theme.slabs[i % theme.slabs.length] : '#FFFFFF';
     const top = pbr(fl || 'foam', col, 1 / TILE_WORLD[fl || 'foam']);
     const side = pbr('foam', new THREE.Color(theme.side).lerp(new THREE.Color(col), 0.25), 1 / 260, { roughness: 1 });
@@ -51,12 +52,14 @@ export function buildWorldHQ(map, Dhakka) {
     }
     // world-space UVs: caps use (x, -z), so repeat and offset come from the tile size
     root.add(slab(shape, depth, top, side));
+    if (f.shrink || map.tilt) { wrapStage(root, before, f, map, dyn); return; }
     if (fl === 'foam' && f.t === 'rect' && f.w > 120 && f.h > 120) {
       for (const [cx, cz] of [[f.x + 14, f.y + 14], [f.x + f.w - 14, f.y + 14], [f.x + 14, f.y + f.h - 14], [f.x + f.w - 14, f.y + f.h - 14]]) { const d = prop('diya'); if (d) root.add(place(d, cx, 0, cz, 34, 34, 34, Math.random() * TAU)); }
     }
     if (f.t === 'rect' && f.w > 140) { const g = prop('garland'); if (g) root.add(place(g, f.x + 6, -8, f.y + f.h + 9, f.w - 12, 110, 110)); }
   });
-  if (A.decals.rangoli_a) {
+  ringRopes(root, map);
+  if (A.decals.rangoli_a && !map.floors.some(f => f.shrink) && !map.tilt) {
     if (map.theme === 'aangan') { root.add(decal(A.decals.rangoli_a, 800, 410, 300)); root.add(decal(A.decals.rangoli_b, 400, 620, 150)); root.add(decal(A.decals.rangoli_c, 1200, 620, 150)); }
     if (map.theme === 'pankha') root.add(decal(A.decals.rangoli_c, 800, 470, 560, 1.0));
     if (map.theme === 'king') root.add(decal(A.decals.rangoli_a, 800, 470, 420, 1.0));
@@ -100,7 +103,10 @@ export function buildWorldHQ(map, Dhakka) {
   // ---- sweepers
   map.sweepers.forEach(s => {
     const g = new THREE.Group(), high = s.h > 200;
-    if (map.theme === 'pankha') {
+    if (s.rope) {
+      for (let k = 0; k < s.arms; k++) { const arm = new THREE.Group(); arm.rotation.y = -k * TAU / s.arms; ropeArm(arm, s); g.add(arm); }
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(16, 20, 26, 20), new THREE.MeshStandardMaterial({ color: '#E8177D', roughness: 0.4 })); hub.position.y = 13; g.add(hub);
+    } else if (map.theme === 'pankha') {
       for (let k = 0; k < s.arms; k++) {
         const arm = new THREE.Group(); arm.rotation.y = -k * TAU / s.arms; g.add(arm);
         if (high) { const w = prop('fan_wall'); if (w) arm.add(place(w, 0, 0, 0, s.len, 96, s.w / 0.2)); }

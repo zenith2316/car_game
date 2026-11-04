@@ -9,7 +9,7 @@ function check(name, fn) { try { fn(); console.log('ok   ' + name); } catch (e) 
 const parse = out => out.filter(([to]) => to !== '#').map(([to, text]) => [to, JSON.parse(text)]);
 
 check('every map spawn point stands on floor', () => {
-  for (const id of ['aangan', 'tapri', 'papad', 'pankha', 'king']) {
+  for (const id of ['aangan', 'tapri', 'papad', 'pankha', 'king', 'akhada', 'patakha', 'sumo', 'rassi', 'chor']) {
     const m = buildMap(id), ms = newMapState(m);
     m.spawns.forEach(([x, y], i) => assert(floorAt(m, ms, x, y), id + ' spawn ' + i + ' is over the void'));
   }
@@ -26,7 +26,9 @@ check('tapri route is walkable (every waypoint and the line between them is floo
   const m = buildMap('tapri'), ms = newMapState(m);
   for (let i = 0; i < m.route.length - 1; i++) {
     const [ax, ay] = m.route[i], [bx, by] = m.route[i + 1];
-    for (let k = 0; k <= 20; k++) { const x = ax + (bx - ax) * k / 20, y = ay + (by - ay) * k / 20; assert(floorAt(m, ms, x, y), `gap between waypoint ${i} and ${i + 1} at ${x | 0},${y | 0}`); }
+    // a moving thali counts as floor anywhere along its track (the ferry gap is crossed by riding it)
+    const onPlat = (x, y) => m.plats.some(p => [[p.ax, p.ay], [p.bx, p.by]].some(([px, py]) => x >= Math.min(px, p.ax) && x <= Math.max(px, p.bx) + p.w && y >= py && y <= py + p.h));
+    for (let k = 0; k <= 20; k++) { const x = ax + (bx - ax) * k / 20, y = ay + (by - ay) * k / 20; assert(floorAt(m, ms, x, y) || onPlat(x, y), `gap between waypoint ${i} and ${i + 1} at ${x | 0},${y | 0}`); }
   }
 });
 
@@ -81,7 +83,7 @@ check('full 5-round match with saboteurs runs to the podium', () => {
     if (e.phase === 'play') e.message('h1', JSON.stringify({ t: 'in', x: Math.cos(t), y: Math.sin(t * 0.7), j: (jc = jc + (Math.random() < 0.05 ? 1 : 0)), d: 0 }));
     if (e.phase === 'panchayat' && !e.votes[me.id]) e.message('h1', JSON.stringify({ t: 'vote', target: 'skip' }));
     const out = e.update(33); t += 0.033;
-    for (const [to, text] of out) { if (to === 'D') { snaps++; maxSnap = Math.max(maxSnap, text.length); } }
+    for (const [to, text] of out) { if (to === '*' && text.startsWith('{"t":"s"')) { snaps++; maxSnap = Math.max(maxSnap, text.length); } }
     seen.add(e.phase);
     if (e.map.id !== lastMap && e.phase === 'intro') { lastMap = e.map.id; maps.push(lastMap); sabCount += e.saboteurs.length; }
     if (e.phase === 'scores' && (!perRound.length || perRound[perRound.length - 1].round !== e.round)) {
@@ -120,6 +122,67 @@ check('the host can play: a player connection with the host token runs the room'
   assert.strictEqual(e.players.length, 4, 'host seat plus three bots');
   assert.notStrictEqual(e.phase, 'lobby', 'the host player started the match');
   assert(e.roundPlayers().some(p => p.name === 'Host'), 'the host is in the round');
+});
+
+function room(seed, games, extra) {
+  const e = new Engine({ seed });
+  e.open('d'); e.message('d', JSON.stringify({ t: 'hello', role: 'display', host: e.hostToken }));
+  for (let i = 0; i < 6; i++) e.message('d', JSON.stringify({ t: 'host', a: 'addBot' }));
+  e.message('d', JSON.stringify({ t: 'host', a: 'settings', settings: Object.assign({ games, rounds: 3 }, extra || {}) }));
+  return e;
+}
+const run = (e, ms) => { for (let t = 0; t < ms; t += 50) { e.update(50); e.drain(); } };
+
+check('the host picks the games: the playlist uses only those, with the finale last', () => {
+  const e = room(5, ['akhada', 'chor', 'king'], { rounds: 5 });
+  e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  assert.strictEqual(e.playlist.length, 5); assert.strictEqual(e.playlist[4], 'king');
+  assert(e.playlist.slice(0, 4).every(id => ['akhada', 'chor'].includes(id)), e.playlist.join());
+  const f = room(5, ['rassi']); f.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  assert(f.playlist.every(id => id === 'rassi'));
+  const g = room(5, ['tapri']); g.message('d', JSON.stringify({ t: 'host', a: 'settings', settings: { games: [] } }));
+  assert.deepStrictEqual(g.settings.games, ['tapri'], 'an empty pick is refused');
+});
+
+check('akhada: punches drain health, a faint stops you, a fainted boxer flies when hit', () => {
+  const e = room(6, ['akhada'], { powerups: false }); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  const [a, v] = e.roundPlayers(); a.bot = v.bot = false;
+  Object.assign(a.b, { x: 700, y: 470, face: 0, vx: 0, vy: 0, dashCd: 0, stun: 0 }); Object.assign(v.b, { x: 745, y: 470, vx: 0, vy: 0, hp: 15, inv: 0, faint: 0 });
+  e.strike(a, v, 1, 0, 1); assert(v.b.hp <= 5, 'damage applied'); e.strike(a, v, 1, 0, 1);
+  assert(v.b.faint > 0, 'fainted at zero health');
+  v.b.inv = 0; v.b.vx = 0; e.strike(a, v, 1, 0, 1); assert(v.b.vx > 1000, 'fainted boxers are thrown hard: ' + v.b.vx);
+  v.p = v; v.inp.x = 1; const x0 = v.b.x; v.b.vx = 0; run(e, 300); assert(Math.abs(v.b.x - x0) < 40 || v.b.state !== 'run', 'no control while fainted');
+});
+
+check('explosives: a stepped-on bomb blasts nearby players and a rocket detonates on a hit', () => {
+  const e = room(7, ['patakha']); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  const ps = e.roundPlayers(); ps.forEach(p => { p.bot = false; p.inp.x = p.inp.y = 0; });
+  e.ms.mines = []; e.addMine(800, 470, null, 0);
+  Object.assign(ps[0].b, { x: 800, y: 470, vx: 0, vy: 0, z: 0 }); Object.assign(ps[1].b, { x: 880, y: 470, vx: 0, vy: 0, z: 0 });
+  let blasts = 0; for (let t = 0; t < 600; t += 50) { for (const [, txt] of e.update(50)) if (txt.includes('["x",')) blasts++; }
+  assert(blasts > 0, 'the bomb went off'); assert(ps[1].b.vx > 150 || ps[1].b.state !== 'run', 'the neighbour was thrown: ' + ps[1].b.vx);
+  const sh = ps[2], tg = ps[3]; Object.assign(sh.b, { x: 600, y: 300, face: 0, ammo: 1, fireCd: 0, stun: 0, faint: 0, z: 0, vx: 0, vy: 0 }); Object.assign(tg.b, { x: 850, y: 300, vx: 0, vy: 0, z: 0, stun: 0, state: 'run' });
+  e.fire(sh); assert.strictEqual(sh.b.ammo, 0); run(e, 600); assert(Math.abs(tg.b.vx) > 100 || tg.b.state !== 'run', 'the rocket blasted its target');
+});
+
+check('chor police: a police dhakka turns a chor into police, and the round ends when nobody is free', () => {
+  const e = room(8, ['chor'], { powerups: false }); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  const cop = e.roundPlayers().find(p => e.police.has(p.id)), chor = e.roundPlayers().find(p => !e.police.has(p.id));
+  chor.b.inv = 0; e.strike(cop, chor, 1, 0, 1);
+  assert(e.police.has(chor.id), 'caught'); assert.strictEqual(e.catches[cop.id], 1);
+  e.roundPlayers().forEach(p => e.police.add(p.id)); run(e, 200); assert.notStrictEqual(e.phase, 'play', 'round ended');
+});
+
+check('every new mode runs a full round with bots without errors', () => {
+  for (const id of ['akhada', 'patakha', 'sumo', 'rassi', 'chor']) {
+    const e = room(9, [id]); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+    let t = 0; while (t < 200000 && !['roundEnd', 'panchayat', 'scores'].includes(e.phase)) { e.update(50); e.drain(); t += 50; }
+    assert(['roundEnd', 'panchayat', 'scores'].includes(e.phase), id + ' never ended');
+    assert(e.result && Array.isArray(e.result.qualified), id + ' scored');
+  }
 });
 
 check('saboteur traps respect role and cooldown', () => {

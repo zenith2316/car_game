@@ -18,7 +18,8 @@ fs.mkdirSync(OUT, { recursive: true });
   const host = await (await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, reducedMotion: 'reduce' })).newPage(); watch(host, 'display');
   await host.goto(BASE + '/display' + (process.env.DM_GFX ? '?gfx=' + process.env.DM_GFX : '') + '#host=' + token);
   await host.waitForSelector('.lobby');
-  const phoneCtx = () => phonesBrowser.newContext({ ...devices['Pixel 7'], hasTouch: true, reducedMotion: 'reduce' });
+  // the phone's own 3D camera has its own test (test/pov.js); here phones stay on the 2D pad for speed
+  const phoneCtx = async () => { const c = await phonesBrowser.newContext({ ...devices['Pixel 7'], hasTouch: true, reducedMotion: 'reduce' }); await c.addInitScript(() => { try { localStorage.setItem('dm.pov', 'off'); } catch (_) {} }); return c; };
   const phones = [];
   for (const [i, name] of [['0', 'Chinmay'], ['1', 'Asha']]) {
     const p = await (await phoneCtx()).newPage(); watch(p, 'phone' + i);
@@ -71,11 +72,14 @@ fs.mkdirSync(OUT, { recursive: true });
     await phones[0].keyboard.up('d'); await phones[1].keyboard.up('w');
     await host.waitForTimeout(1500);
     if (round === 1) await host.screenshot({ path: path.join(OUT, `2${round}b-play-later.png`) });
-    await host.click('#hostbar [data-act="skip"]');
-    if (!await waitPhase('roundEnd', 4000)) throw Error('no roundEnd');
+    if ((await phaseOf()) === 'play') await host.click('#hostbar [data-act="skip"]');
+    // rounds can also end on their own; rounds with no saboteurs (brawl, tag, finale) skip the vote
+    const t1 = Date.now(); let ph; while (Date.now() - t1 < 8000 && !['roundEnd', 'panchayat', 'reveal', 'scores'].includes(ph = await phaseOf())) await host.waitForTimeout(150);
+    if (!['roundEnd', 'panchayat', 'reveal', 'scores'].includes(ph)) throw Error('round did not end');
     await host.waitForTimeout(600);
     if (round === 1) await host.screenshot({ path: path.join(OUT, '30-round-end.png') });
-    if (map !== 'Dhakka King') {
+    const hasVote = await host.evaluate(() => 0) || (await phaseOf()) === 'panchayat' || (await (async () => { const t2 = Date.now(); while (Date.now() - t2 < 6000) { const q = await phaseOf(); if (q === 'panchayat') return true; if (q === 'scores' || q === 'intro') return false; await host.waitForTimeout(150); } return false; })());
+    if (hasVote) {
       if (!await waitPhase('panchayat', 8000)) throw Error('no panchayat');
       await host.waitForTimeout(600);
       for (const p of phones) { const b = await p.$('[data-vote]'); if (b) { p.once('dialog', d => d.accept()); await b.click(); } }

@@ -56,7 +56,7 @@ function onRoom(r) {
   if (r.map.id !== app.mapId) { app.mapId = r.map.id; app.map = D.buildMap(r.map.id); app.snaps = []; app.tf = {}; app.parts = []; app.statKey = ''; if (R3) R3.setMap(app.map, D); }
   if (!prev || prev.phase !== r.phase) { app.phaseSeenAt = performance.now(); onPhase(r.phase, prev && prev.phase); }
   app.phaseLeftAt = { left: r.left, at: performance.now() };
-  renderOverlay(); renderHost();
+  renderOverlay(); renderHost(); gamesMenu(false);
 }
 function onPhase(ph, was) {
   if (was && ph !== 'play' && !(was === 'intro' && ph === 'countdown')) wipe();
@@ -111,6 +111,13 @@ function fx(f, now) {
     case 'g': { const p = byColor(a); if (p) flash(p.name + ' has the mukut!', 'gold', 1200); S.play('grab', 0); break; }
     case 'cd': S.play('drop', 0.1); break;
     case 'go': flash('CHALO!', 'go', 900); S.play('go', 0); break;
+    case 'x': app.shake = Math.max(app.shake, 18); if (!R3) { ring(a, b, c || 160, 'rgba(255,122,26,0.95)', 0.5); sparks(a, b, 26); dust(a, b, 16, 'rgba(90,70,100,0.6)'); } words(a, b - 40, ['DHAMAKA!', 'BOOM!', 'PATAKHA!'][Math.random() * 3 | 0], '#FF7A1A', 40); S.play('quake', 0.05); break;
+    case 'fr': S.play('dash', 0.05); if (!R3) sparks(a, b, 6); break;
+    case 'mf': S.play('beep', 0.05); break;
+    case 'pk': { const p = byColor(a); S.play('grab', 0.05); if (p) words((beanPos(a) || {}).x || 800, ((beanPos(a) || {}).y || 450) - 60, 'Rockets!', '#FF7A1A', 28); break; }
+    case 'ko': { const p = byColor(a); if (p) flash(p.name + ' fainted!', 'bad', 1200); S.play('out', 0.2); break; }
+    case 'wk': break;
+    case 'tg': { const p = byColor(a), q = byColor(b); if (p) flash((q ? q.name : 'Police') + ' caught ' + p.name + '!', 'bad', 1300); S.play('hit', 0); break; }
     case 'end': S.play('beep', 0); break;
   }
 }
@@ -151,8 +158,8 @@ function resize() {
 function staticLayer() {
   const k = Math.min(2, app.view.s * app.view.dpr), key = app.mapId + ':' + k.toFixed(2);
   if (app.statKey === key && app.stat) return app.stat;
-  const c = app.stat || document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
-  const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0); A.drawMapStatic(x, app.map, W, H);
+  const MW = app.map.w || W, c = app.stat || document.createElement('canvas'); c.width = Math.round(MW * k); c.height = Math.round(H * k);
+  const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0); A.drawMapStatic(x, app.map, MW, H);
   app.stat = c; app.statKey = key; return c;
 }
 let lastT = performance.now();
@@ -164,13 +171,20 @@ function frame(now) {
   if (R3) { frame3d(now, dt, T); return; }
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.void[0]; ctx.fillRect(0, 0, canvas.width, canvas.height);
   app.shake *= Math.exp(-9 * dt); const sx = (Math.random() - 0.5) * app.shake, sy = (Math.random() - 0.5) * app.shake;
-  ctx.setTransform(v.dpr * v.s, 0, 0, v.dpr * v.s, v.dpr * (v.ox + sx), v.dpr * (v.oy + sy));
-  ctx.drawImage(staticLayer(), 0, 0, W, H);
+  // the 2D view fits the whole map; the long race course is wider than the 1600-unit stage
+  const MW = app.map.w || W, ms2 = Math.min(innerWidth / MW, innerHeight / H), mox = (innerWidth - MW * ms2) / 2, moy = (innerHeight - H * ms2) / 2;
+  ctx.setTransform(v.dpr * ms2, 0, 0, v.dpr * ms2, v.dpr * (mox + sx), v.dpr * (moy + sy));
+  ctx.drawImage(staticLayer(), 0, 0, MW, H);
+  const shrinkF = app.map.floors.find(f => f.shrink);
+  if (shrinkF && cur.sk && cur.sk < 999) { ctx.fillStyle = th.void[0]; ctx.beginPath(); ctx.arc(shrinkF.x, shrinkF.y, shrinkF.r + 60, 0, TAU); ctx.arc(shrinkF.x, shrinkF.y, shrinkF.r * cur.sk / 1000, 0, TAU, true); ctx.fill(); }
   for (const k in app.pulse) { app.pulse[k] = Math.max(0, app.pulse[k] - dt * 4); }
   const dyn = { sw: cur.sw, pl: cur.pl, mv: cur.mv, bu: cur.bu, tl: cur.tl, pe: cur.pe, u: cur.u, tf: app.tf, bump: app.pulse };
   A.drawMapDynamic(ctx, app.map, dyn, T);
   // depth-sorted drawables
   const items = A.tallPieces(app.map, dyn, T);
+  for (const [x, y, st] of cur.mn || []) items.push({ y, draw: x2 => { x2.fillStyle = st === 2 && Math.floor(T * 14) % 2 ? '#FFE36A' : st === 0 ? '#C9A8FF' : '#D61F3C'; x2.beginPath(); x2.moveTo(x - 13, y); x2.lineTo(x, y - 30); x2.lineTo(x + 13, y); x2.closePath(); x2.fill(); x2.strokeStyle = A.INK; x2.lineWidth = 3; x2.stroke(); } });
+  for (const [x, y] of cur.pu || []) items.push({ y, draw: x2 => { const bob = Math.sin(T * 3 + x) * 4; x2.fillStyle = '#FF7A1A'; x2.fillRect(x - 15, y - 26 + bob, 30, 22); x2.strokeStyle = A.INK; x2.lineWidth = 3; x2.strokeRect(x - 15, y - 26 + bob, 30, 22); x2.fillStyle = '#FFE36A'; x2.fillRect(x - 3, y - 26 + bob, 6, 22); } });
+  for (const [x, y, vx, vy] of cur.pj || []) items.push({ y, draw: x2 => { const l = Math.hypot(vx, vy) || 1; x2.strokeStyle = '#E8177D'; x2.lineWidth = 9; x2.lineCap = 'round'; x2.beginPath(); x2.moveTo(x - vx / l * 18, y - 40 - vy / l * 18); x2.lineTo(x + vx / l * 18, y - 40 + vy / l * 18); x2.stroke(); x2.strokeStyle = '#FFD84A'; x2.lineWidth = 5; x2.beginPath(); x2.moveTo(x - vx / l * 20, y - 40 - vy / l * 20); x2.lineTo(x - vx / l * 40, y - 40 - vy / l * 40); x2.stroke(); } });
   const players = cur.p || [];
   for (const p of players) {
     const [c, x, y, z, vx, vy, f, stun, fl, place] = p; if (fl & 4) continue;
@@ -178,6 +192,7 @@ function frame(now) {
     b.v += (-120 * b.sq - 12 * b.v) * dt; b.sq += b.v * dt; b.sq = Math.max(-0.45, Math.min(0.55, b.sq));
     const falling = fl & 2, scale = falling ? Math.max(0, 1 + z / 420) : 1;
     const alpha = (fl & 32) ? (Math.floor(T * 12) % 2 ? 0.45 : 0.9) : (fl & 8) ? 0.9 : 1;
+    if (fl & 512) items.push({ y: y - 1, draw: x2 => { x2.strokeStyle = '#3D8BFF'; x2.lineWidth = 4; A.ell(x2, x, y, 30, 16); x2.stroke(); } });
     items.push({ y, draw: x2 => {
       A.drawBean(x2, { x, y: falling ? y - z * 0.3 : y, z: falling ? 0 : z, color: c, look: (byColor(c) || {}).look || 0, face: f / 100, speed: Math.hypot(vx, vy), t: b.t, squash: b.sq, stun: stun > 0, dash: fl & 1, slip: fl & 64, scale, alpha, noShadow: falling });
       if (fl & 16) A.crown(x2, x, y, z + 62, T, true);
@@ -204,8 +219,10 @@ function frame(now) {
   updateHud(now);
   if (app.flashUntil && now > app.flashUntil) { $('#flash').className = 'flash'; app.flashUntil = 0; }
 }
-function tag(x, y, k, name, col, emote) {
+function tag(x, y, k, name, col, emote, hp, cop, faint) {
   ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+  if (cop) name = '🚓 ' + name; if (faint) name = '💫 ' + name;
+  if (hp != null) { const w = 58; ctx.fillStyle = 'rgba(28,11,51,0.85)'; A.rr(ctx, -w / 2 - 2, 15, w + 4, 9, 4); ctx.fill(); ctx.fillStyle = hp > 50 ? '#3DDC6A' : hp > 25 ? '#FFC21A' : '#FF4B4B'; A.rr(ctx, -w / 2, 17, w * Math.max(0, Math.min(100, hp)) / 100, 5, 3); ctx.fill(); }
   ctx.font = '800 17px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(name).width + 22;
   ctx.fillStyle = 'rgba(28,11,51,0.82)'; A.rr(ctx, -w / 2, -13, w, 26, 13); ctx.fill();
@@ -225,7 +242,7 @@ function frame3d(now, dt, T) {
     const pt = R3.project(x, y, z + 112); if (!pt.ok) continue;
     const k = Math.max(0.62, Math.min(1.35, R3.scaleAt(x, y, z) * 1.15));
     const em = app.emotes.get(c);
-    tag(pt.x, pt.y, k, pl.name, A.COLORS[c], em && em.until > now ? em.text : '');
+    tag(pt.x, pt.y, k, pl.name, A.COLORS[c], em && em.until > now ? em.text : '', app.room.map.kind === 'brawl' ? p[10] : null, fl & 512, fl & 256);
   }
   // floating words, projected from the arena
   const keep = [], rdt = Math.min(0.5, (now - (app.lastReal || now)) / 1000), menu = ['panchayat', 'reveal', 'scores', 'intro'].includes(ph); app.lastReal = now;
@@ -275,6 +292,8 @@ function updateHud(now) {
   if (r.map.kind === 'race') st = `<b>${ps.filter(p => p.st === 'done').length}</b> / ${r.quota} qualified`;
   else if (r.map.kind === 'survive') st = `<b>${ps.filter(p => p.st !== 'out').length}</b> standing · ${r.quota} survive`;
   else if (r.map.kind === 'crown') st = 'Hold the mukut!';
+  else if (r.map.kind === 'brawl') st = `<b>${ps.filter(p => p.st !== 'out').length}</b> boxers standing`;
+  else if (r.map.kind === 'tag') st = `<b>${ps.filter(p => !(r.police || []).includes(p.id)).length}</b> chors free`;
   const hs = $('#hud-status'); if (hs.dataset.v !== st) { hs.dataset.v = st; hs.innerHTML = st; }
   tickOverlay();
 }
@@ -286,6 +305,8 @@ function goal(r) {
   if (r.map.kind === 'race') return `First <b>${r.quota}</b> to the tapri qualify. Fall and you restart at the last flag.`;
   if (r.map.kind === 'survive') return `<b>${r.quota}</b> of ${n} survive. Fall off and you are out of this round.`;
   if (r.map.kind === 'crown') return 'Hold the mukut the longest. Any dhakka knocks it loose. No saboteurs, no mercy.';
+  if (r.map.kind === 'brawl') return 'Dhakka is your punch. Drain health, faint them, then throw them out. Last ones standing score.';
+  if (r.map.kind === 'tag') return `<b>${(r.police || []).length}</b> Police start. Every Chor they catch joins them. Stay free to score.`;
   return '';
 }
 function playerChips(r) {
@@ -321,7 +342,7 @@ function renderOverlay() {
           ${playerChips(r)}
           ${app.host ? `<div class="hostset">
             <div class="seg" role="group" aria-label="Rounds">${[3, 5, 7].map(n => `<button data-act="set" data-k="rounds" data-v="${n}" aria-pressed="${r.settings.rounds === n}">${n} rounds</button>`).join('')}</div>
-            <div class="seg" role="group" aria-label="Saboteurs"><button data-act="set" data-k="saboteurs" data-v="1" aria-pressed="${r.settings.saboteurs}">Chupa Rustam on</button><button data-act="set" data-k="saboteurs" data-v="0" aria-pressed="${!r.settings.saboteurs}">Off</button></div>
+            <button class="btn ghost" data-act="games">Games · ${r.settings.games.length}</button>
             <div class="seg" role="group" aria-label="Panchayat time">${[30, 45, 60, 90].map(n => `<button data-act="set" data-k="talk" data-v="${n}" aria-pressed="${r.settings.talk === n}">${n}s talk</button>`).join('')}</div>
             <button class="btn ghost" data-act="addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button>
             <button class="btn go" data-act="start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>
@@ -413,6 +434,20 @@ function playMenu() {
     <button class="btn ghost" data-act="play-cancel">Not now</button></section>`;
   m.hidden = false;
 }
+/* The host's game list for this match, plus the Chupa Rustam and power-up switches. */
+const GAME_ICON = { tapri: '🏁', papad: '🫓', pankha: '🌀', akhada: '🥊', patakha: '🎆', sumo: '🤼', rassi: '🪢', chor: '🚓', king: '👑' };
+function gamesMenu(open) {
+  const r = app.room; let m = $('#gamesmenu'); if (!r || !r.catalog) return;
+  if (!m) { if (!open) return; m = document.createElement('div'); m.id = 'gamesmenu'; m.className = 'playmenu'; document.body.appendChild(m); }
+  if (!open && m.hidden) return;
+  const st = r.settings;
+  m.innerHTML = `<section class="pm-card games-card" role="dialog" aria-modal="true" aria-labelledby="gm-h"><h2 id="gm-h" class="title">Pick the games</h2>
+    <div class="game-grid">${r.catalog.map(g => `<button class="game-t" data-act="game-t" data-id="${g.id}" aria-pressed="${st.games.includes(g.id)}"><i>${GAME_ICON[g.id] || '🎪'}</i><b>${esc(g.name)}</b>${g.id === 'king' ? '<small>Finale, always last</small>' : ''}</button>`).join('')}</div>
+    <div class="row gm-row"><div class="seg" role="group" aria-label="Saboteurs"><button data-act="set" data-k="saboteurs" data-v="1" aria-pressed="${st.saboteurs}">Chupa Rustam on</button><button data-act="set" data-k="saboteurs" data-v="0" aria-pressed="${!st.saboteurs}">Off</button></div>
+    <div class="seg" role="group" aria-label="Power-ups"><button data-act="set" data-k="powerups" data-v="1" aria-pressed="${st.powerups}">Power-ups on</button><button data-act="set" data-k="powerups" data-v="0" aria-pressed="${!st.powerups}">Off</button></div></div>
+    <button class="btn go" data-act="games-close">Done</button></section>`;
+  m.hidden = false;
+}
 function closeMenu() { const m = $('#playmenu'); if (m) m.hidden = true; }
 function playHere() {
   closeMenu(); if (!hostToken || $('#playframe')) return;
@@ -433,7 +468,10 @@ document.addEventListener('click', e => {
   if (a === 'play-here') { playHere(); return; }
   if (a === 'play-ctrl') { closeMenu(); location.href = '/#host=' + encodeURIComponent(hostToken); return; }
   if (a === 'play-cancel') { closeMenu(); return; }
-  if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); }
+  if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' || k === 'powerups' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); }
+  else if (a === 'games') gamesMenu(true);
+  else if (a === 'games-close') { const m = $('#gamesmenu'); if (m) m.hidden = true; }
+  else if (a === 'game-t') { const r = app.room, id = b.dataset.id, on = r.settings.games.includes(id); const games = on ? r.settings.games.filter(g => g !== id) : r.settings.games.concat(id); if (!games.length) toast('Keep at least one game.'); else hostDo('settings', { settings: { games } }); }
   else if (a === 'kick') { const n = nameOf(b.dataset.id); if (confirm('Remove ' + n + ' from the room?')) hostDo('kick', { id: b.dataset.id }); }
   else if (a === 'end') { if (confirm('End the match now and show the podium?')) hostDo('end'); }
   else hostDo(a);

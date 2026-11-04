@@ -268,3 +268,38 @@ html.embed .hc-native .ghost{flex:0 1 auto;min-height:30px;font-size:12px}
 html.embed body.live .me-chip{display:none}
 html.embed .mini-row{margin-top:0;gap:6px}
 html.embed .mini-row .cta,html.embed .mini-row .ghost{flex:0 0 auto;margin:0;min-height:32px;font-size:13px;padding:2px 12px}
+/* ---------- your own 3D view behind the pad ---------- */
+.pov-canvas{position:fixed;inset:0;width:100vw;height:100dvh;z-index:0;display:block;touch-action:none}
+.pov-canvas[hidden]{display:none}
+body.pov{background:#1C0B33}
+body.pov::before{display:none}
+body.pov .pad{background:none}
+html:not(.embed) body.pov .bar{position:fixed;top:0;left:0;right:0;z-index:6;padding-top:calc(4px + env(safe-area-inset-top,0px))}
+html:not(.embed) body.pov .bar .logo{font-size:18px}
+html:not(.embed) body.pov .screen{position:relative;z-index:5;padding-top:calc(46px + env(safe-area-inset-top,0px))}
+body.pov.live .screen{display:none}
+body.pov .status{font-size:14px;padding:4px 12px;margin:4px 12px}
+body.pov .stick .base{background:radial-gradient(circle,#FFFFFF33 0 52%,#FFFFFF66 53% 100%)}
+body.pov .stick p{color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
+/* landscape with your own view uses the html.embed corner layout (toggled by controller.js) */
+html.embed body.pov.live .status{display:block;position:fixed;top:calc(var(--top) + 2px);left:50%;transform:translateX(-50%);margin:0;white-space:nowrap;font-size:13px;z-index:6}
+html.embed body.pov .status:empty{display:none}
+/* ---------- fire button (only while you hold rockets) ---------- */
+.big.fire{position:absolute;left:calc(50% + 6px);top:34px;width:min(19vw,92px);background:radial-gradient(circle at 35% 28%,#FFB3DC,#E8177D 55%,#A40D55);box-shadow:0 7px 0 var(--plum);color:#FFFFFF;text-shadow:0 2px 0 var(--plum);font-size:15px;z-index:2;animation:pulseb 1s ease-in-out infinite}
+.big.fire[hidden]{display:none}
+.big.fire .rk{font-size:26px;line-height:1;text-shadow:none}
+.big.fire b{position:absolute;right:-4px;top:-4px;min-width:24px;height:24px;border-radius:12px;background:#FFE36A;color:var(--plum);border:2px solid var(--plum);font-size:14px;line-height:20px;text-shadow:none}
+html.embed .big.fire{position:relative;left:auto;top:auto;width:calc(var(--bb) * .8);margin-bottom:calc(var(--bb) * .9)}
+/* ---------- boxing health and the new roles ---------- */
+.status .hp{display:inline-block;vertical-align:middle;width:84px;height:12px;border-radius:6px;background:#2A0F4A;border:2px solid var(--plum);overflow:hidden;margin-right:6px}
+.status .hp b{display:block;height:100%;background:linear-gradient(90deg,#FF4B4B,#FFC21A 40%,#3DDC6A);transition:width .25s}
+.role.police{background:linear-gradient(160deg,#3D8BFF,#1B3FA8)}
+.role.chor{background:linear-gradient(160deg,#4A4F5C,#1C1F28)}
+.role.boxer{background:linear-gradient(160deg,#FF6B3D,#B3261E)}
+/* ---------- host: games for this match ---------- */
+.hc-label{margin-top:10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--rani);font-weight:800}
+.hostctl .seg.games button{flex:1 0 40%}
+html:not(.embed) body.pov.live .status{position:fixed;top:calc(44px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);margin:0;white-space:nowrap;z-index:6}
+body.pov:not(.live) .status{display:none}
+html.embed body.pov .lobby-top .row .ghost{font-size:12px;padding:2px 8px;min-height:34px}
+html.embed body.pov .lobby-top .row .cta{font-size:14px;padding:4px 10px}

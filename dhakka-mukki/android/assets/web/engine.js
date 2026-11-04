@@ -8,6 +8,8 @@
 const W = 1600, H = 900, STEP = 1 / 60, R = 17; // body radius: small against the maps so paths feel roomy
 const MAXS = 330, ACC = 11, G = 1700, JUMPV = 560, DASHV = 440, DASH_T = 0.22, DASH_CD = 1.1;
 const KNOCK = 560, STUN_HIT = 0.6, SEATS = 10, BLAME_WINDOW = 3.5;
+/* brawl health and fainting, explosives */
+const HP = 100, PUNCH_DMG = 10, FAINT_T = 3.6, FAINT_KNOCK = 2.4, BLAST_R = 160, SHOT_V = 820, AMMO = 3;
 const NAMES = ['Bunty', 'Pinky', 'Golu', 'Chintu', 'Sweety', 'Pappu', 'Munna', 'Dolly', 'Raju', 'Tinku', 'Babli', 'Lalli'];
 const EMOTES = ['Oye!', 'Arre!', 'Chalo!'];
 const PHASE_SECS = { intro: 6, countdown: 3, roundEnd: 4.5, reveal: 9, scores: 7 };
@@ -51,8 +53,8 @@ const MAPS = {
     spawns: grid(800, 380, 5, 2, 110, 80), trapName: 'Ulta'
   }),
   tapri: () => ({
-    id: 'tapri', name: 'Tapri Dash', kind: 'race', theme: 'tapri', duration: 90,
-    blurb: 'Race to the chai tapri. Dodge the belans, ride the thalis or take the slow rope.',
+    id: 'tapri', name: 'Tapri Dash', kind: 'race', theme: 'tapri', duration: 120, w: 2960,
+    blurb: 'A long run to the chai tapri. Jump the belans, ride the thalis, weave the kulhads and dodge the crates.',
     floors: [
       { t: 'rect', x: 40, y: 250, w: 230, h: 400 },      // start pad
       { t: 'rect', x: 268, y: 360, w: 360, h: 180 },     // belan bridge
@@ -60,29 +62,42 @@ const MAPS = {
       { t: 'rect', x: 700, y: 104, w: 126, h: 96 },      // ledge up to the rope
       { t: 'rect', x: 824, y: 104, w: 270, h: 80 },      // rope bridge (slow, top)
       { t: 'rect', x: 1092, y: 104, w: 216, h: 596 },    // island 2
-      { t: 'rect', x: 1306, y: 330, w: 260, h: 240 }     // final run + tapri
+      { t: 'rect', x: 1306, y: 330, w: 260, h: 240 },    // crate run
+      { t: 'rect', x: 1564, y: 250, w: 330, h: 420 },    // kulhad slalom
+      { t: 'rect', x: 1892, y: 380, w: 422, h: 160 },    // second belan bridge
+      { t: 'rect', x: 2558, y: 290, w: 360, h: 340 }     // final island and tapri
     ],
     plats: [
       { x: 0, y: 0, w: 128, h: 128, ax: 840, ay: 244, bx: 840, by: 584, period: 4.6, phase: 0 },
-      { x: 0, y: 0, w: 128, h: 128, ax: 964, ay: 584, bx: 964, by: 244, period: 4.6, phase: 0 }
+      { x: 0, y: 0, w: 128, h: 128, ax: 964, ay: 584, bx: 964, by: 244, period: 4.6, phase: 0 },
+      { x: 0, y: 0, w: 130, h: 130, ax: 2312, ay: 395, bx: 2430, by: 395, period: 3.8, phase: 0 }   // thali ferry over the gap
     ],
     conveyors: [
       { x: 824, y: 104, w: 270, h: 80, vx: -80, vy: 0 },
-      { x: 1306, y: 330, w: 170, h: 240, vx: -110, vy: 0 }
+      { x: 1306, y: 330, w: 170, h: 240, vx: -110, vy: 0 },
+      { x: 2558, y: 290, w: 150, h: 340, vx: -90, vy: 0 }
     ],
-    walls: [], movers: [{ x: 0, y: 0, w: 34, h: 120, ax: 1400, ay: 330, bx: 1400, by: 450, period: 2.6, phase: 0 }],
-    bumpers: [{ x: 1150, y: 260, r: 30 }, { x: 1250, y: 420, r: 30 }, { x: 1150, y: 570, r: 30 }],
+    walls: [], movers: [
+      { x: 0, y: 0, w: 34, h: 120, ax: 1400, ay: 330, bx: 1400, by: 450, period: 2.6, phase: 0 },
+      { x: 0, y: 0, w: 34, h: 110, ax: 2640, ay: 290, bx: 2640, by: 520, period: 3.0, phase: 1.6 }
+    ],
+    bumpers: [{ x: 1150, y: 260, r: 30 }, { x: 1250, y: 420, r: 30 }, { x: 1150, y: 570, r: 30 },
+      { x: 1660, y: 340, r: 30 }, { x: 1790, y: 560, r: 30 }, { x: 1860, y: 330, r: 26 }, { x: 1640, y: 590, r: 26 }],
     sweepers: [
       { x: 360, y: 450, len: 112, w: 22, arms: 2, speed: 1.7, h: 44 },
-      { x: 535, y: 450, len: 112, w: 22, arms: 2, speed: -2.0, h: 44 }
+      { x: 535, y: 450, len: 112, w: 22, arms: 2, speed: -2.0, h: 44 },
+      { x: 2000, y: 460, len: 100, w: 22, arms: 2, speed: 1.9, h: 44 },
+      { x: 2205, y: 460, len: 100, w: 22, arms: 2, speed: -2.2, h: 44 }
     ],
     checkpoints: [
       { x: 626, y: 190, w: 200, h: 520, sx: 690, sy: 450 },
-      { x: 1092, y: 104, w: 216, h: 596, sx: 1150, sy: 380 }
+      { x: 1092, y: 104, w: 216, h: 596, sx: 1150, sy: 380 },
+      { x: 1564, y: 250, w: 330, h: 420, sx: 1620, sy: 460 },
+      { x: 2558, y: 290, w: 360, h: 340, sx: 2740, sy: 460 }
     ],
-    finish: { x: 1486, y: 330, w: 80, h: 240 },
+    finish: { x: 2834, y: 290, w: 84, h: 340 },
     spawns: grid(150, 450, 2, 5, 80, 78), trapName: 'Ulta',
-    route: [[150, 450], [275, 450], [620, 450], [720, 450], [760, 200], [830, 148], [1100, 148], [1150, 200], [1200, 340], [1300, 450], [1530, 450]]
+    route: [[150, 450], [275, 450], [620, 450], [720, 450], [760, 150], [830, 144], [1100, 144], [1150, 200], [1200, 340], [1300, 450], [1560, 450], [1720, 450], [1890, 460], [2310, 460], [2350, 460], [2575, 460], [2880, 460]]
   }),
   papad: () => {
     const tiles = [], r = 56, dx = 92, dy = 80; // r must exceed the triple-junction gap (~53) or players fall between papads
@@ -121,13 +136,70 @@ const MAPS = {
     sweepers: [], spawns: ring(800, 470, 300, 10), trapName: ''
   })
 };
+/* New modes. keep: the share of players that survive a survival round. power: power-ups always on.
+   shrink: a round floor that shrinks during play. tilt: the stage leans and drifts players. from: a sweeper that joins later. */
+Object.assign(MAPS, {
+  akhada: () => ({
+    id: 'akhada', name: 'Akhada Brawl', kind: 'brawl', theme: 'king', duration: 90, power: true, ropes: true,
+    blurb: 'Boxing free-for-all. Punches drain health. The ropes hold you, until you faint. Then anyone can throw you out of the akhada.',
+    floors: [{ t: 'rect', x: 350, y: 200, w: 900, h: 540 }],
+    plats: [], conveyors: [], walls: [], movers: [], sweepers: [],
+    bumpers: [{ x: 372, y: 222, r: 24 }, { x: 1228, y: 222, r: 24 }, { x: 372, y: 718, r: 24 }, { x: 1228, y: 718, r: 24 }],
+    spawns: ring(800, 470, 210, 10), trapName: ''
+  }),
+  patakha: () => ({
+    id: 'patakha', name: 'Patakha Party', kind: 'survive', theme: 'papad', duration: 90, power: true, keep: 0.4, mines: 5, pickups: 4,
+    blurb: 'Grab crackers and rockets, blast everyone off. The stage shrinks. Do not step on the anaar bombs.',
+    floors: [{ t: 'circ', x: 800, y: 470, r: 430, shrink: { to: 0.5, from: 15, over: 60 } }],
+    plats: [], conveyors: [], walls: [], movers: [], bumpers: [], sweepers: [],
+    spawns: ring(800, 470, 290, 10), trapName: 'Bomb'
+  }),
+  sumo: () => ({
+    id: 'sumo', name: 'Mela Sumo', kind: 'survive', theme: 'pankha', duration: 75, keep: 0.3, knock: 0.62,
+    blurb: 'Shove everyone off the stage. It tilts, it drifts and it shrinks. Last ones on the stage win.',
+    floors: [{ t: 'circ', x: 800, y: 470, r: 370, shrink: { to: 0.5, from: 12, over: 55 } }],
+    tilt: { max: 300, rate: 0.32 },
+    plats: [], conveyors: [], walls: [], movers: [], bumpers: [], sweepers: [],
+    spawns: ring(800, 470, 220, 10), trapName: 'Ulta'
+  }),
+  rassi: () => ({
+    id: 'rassi', name: 'Rassi Kood', kind: 'survive', theme: 'tapri', duration: 75, keep: 0.5,
+    blurb: 'Jump the spinning ropes. They speed up in waves, and a second rope joins in. Miss a jump and you fly.',
+    floors: [{ t: 'circ', x: 800, y: 470, r: 380 }],
+    plats: [], conveyors: [], walls: [], movers: [], bumpers: [],
+    sweepers: [
+      { x: 800, y: 470, len: 380, w: 14, arms: 2, speed: 0.8, h: 40, ramp: 0.016, wave: 0.3, knock: 1.15, rope: true },
+      { x: 800, y: 470, len: 210, w: 14, arms: 2, speed: -1.4, h: 40, ramp: 0.012, wave: 0.3, knock: 1.15, rope: true, from: 25 }
+    ],
+    spawns: ring(800, 470, 230, 10), trapName: 'Ulta'
+  }),
+  chor: () => ({
+    id: 'chor', name: 'Chor Police', kind: 'tag', theme: 'aangan', duration: 75, ropes: true,
+    blurb: 'Police catch Chors with a dhakka, and every caught Chor joins the Police. Chors still free at the end score big.',
+    floors: [{ t: 'rect', x: 220, y: 140, w: 1160, h: 660 }],
+    plats: [], conveyors: [], walls: [], movers: [], sweepers: [],
+    bumpers: [{ x: 520, y: 330, r: 34 }, { x: 1080, y: 330, r: 34 }, { x: 800, y: 470, r: 40 }, { x: 520, y: 610, r: 34 }, { x: 1080, y: 610, r: 34 }],
+    spawns: grid(800, 470, 5, 2, 170, 300), trapName: ''
+  })
+});
+/* What the host can pick for a match. king is the finale and always plays last when picked. */
+const GAMES = ['tapri', 'papad', 'pankha', 'akhada', 'patakha', 'sumo', 'rassi', 'chor', 'king'];
 function grid(cx, cy, cols, rows, sx, sy) {
   const out = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push([cx + (c - (cols - 1) / 2) * sx, cy + (r - (rows - 1) / 2) * sy]);
   return out;
 }
 function ring(cx, cy, rad, n) { const out = []; for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / n; out.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]); } return out; }
-function buildMap(id) { const f = MAPS[id]; if (!f) throw Error('Unknown map ' + id); const m = f(); m.movers = m.movers || []; m.checkpoints = m.checkpoints || []; return m; }
+function buildMap(id) {
+  const f = MAPS[id]; if (!f) throw Error('Unknown map ' + id);
+  const m = f(); m.movers = m.movers || []; m.checkpoints = m.checkpoints || []; m.w = m.w || W;
+  // floor bounds, for random power-up spots and camera framing
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  m.floors.forEach(q => q.t === 'rect' ? (x0 = Math.min(x0, q.x), x1 = Math.max(x1, q.x + q.w), y0 = Math.min(y0, q.y), y1 = Math.max(y1, q.y + q.h)) : (x0 = Math.min(x0, q.x - q.r), x1 = Math.max(x1, q.x + q.r), y0 = Math.min(y0, q.y - q.r), y1 = Math.max(y1, q.y + q.r)));
+  (m.tiles || []).forEach(t => { x0 = Math.min(x0, t.x - t.r); x1 = Math.max(x1, t.x + t.r); y0 = Math.min(y0, t.y - t.r); y1 = Math.max(y1, t.y + t.r); });
+  m.bounds = { x0, x1, y0, y1 };
+  return m;
+}
 
 /* Map dynamic state: sweeper angles, platform positions, tile states, trap effects. */
 function newMapState(map) {
@@ -135,7 +207,9 @@ function newMapState(map) {
     t: 0, ang: map.sweepers.map((s, i) => i * 0.7), ulta: 0, ultaBy: null,
     plat: map.plats.map(p => platPos(p, 0)), mover: map.movers.map(p => platPos(p, 0)), bump: map.bumpers.map(b => b.orbit ? orbitPos(b, 0) : { x: b.x, y: b.y }),
     tiles: map.tiles ? map.tiles.map(() => 0) : null, tileBy: map.tiles ? map.tiles.map(() => null) : null, press: map.tiles ? map.tiles.map(() => 0) : null, heat: 4,
-    peels: [], crown: map.kind === 'crown' ? { x: 800, y: 470, z: 0, vx: 0, vy: 0, vz: 0, holder: null, cool: 0 } : null
+    peels: [], crown: map.kind === 'crown' ? { x: 800, y: 470, z: 0, vx: 0, vy: 0, vz: 0, holder: null, cool: 0 } : null,
+    k: 1, tilt: { x: 0, y: 0, a: 0 }, swOn: map.sweepers.map(sw => !sw.from),
+    mines: [], pickups: [], shots: [], mineT: 6, pickT: 3
   };
 }
 const TILE_CRACK = 1.2, TILE_PRESS = 0.6;
@@ -143,7 +217,7 @@ function floorAt(map, ms, x, y) {
   for (let i = 0; i < map.plats.length; i++) { const p = map.plats[i], q = ms.plat[i]; if (x >= q.x && x <= q.x + p.w && y >= q.y && y <= q.y + p.h) return { k: 'plat', i }; }
   for (const f of map.floors) {
     if (f.t === 'rect' && inRect(x, y, f)) return { k: 'floor' };
-    if (f.t === 'circ' && hyp(x - f.x, y - f.y) <= f.r) return { k: 'floor' };
+    if (f.t === 'circ' && hyp(x - f.x, y - f.y) <= f.r * (f.shrink ? ms.k : 1)) return { k: 'floor' };
   }
   if (map.tiles) for (let i = 0; i < map.tiles.length; i++) { const t = map.tiles[i]; if (ms.tiles[i] >= 0 && hyp(x - t.x, y - t.y) <= t.r) return { k: 'tile', i }; }
   return null;
@@ -157,7 +231,7 @@ class Engine {
     this.rng = mulberry(opts.seed != null ? opts.seed : parseInt(uid().slice(0, 8), 16));
     this.clients = new Map();
     this.players = [];
-    this.settings = { rounds: 5, saboteurs: true, talk: 45 };
+    this.settings = { rounds: 5, saboteurs: true, talk: 45, games: GAMES.slice(), powerups: true };
     this.t = 0; this.acc = 0;
     this.phase = 'lobby'; this.phaseLeft = 0; this.paused = false;
     this.round = 0; this.playlist = []; this.history = []; this.lastSabo = [];
@@ -209,7 +283,7 @@ class Engine {
         const seat = typeof m.token === 'string' && this.players.find(x => x.token === m.token);
         if (seat) {
           if (seat.cid && seat.cid !== c.cid) { const old = this.clients.get(seat.cid); if (old) { old.pid = null; this.err(old.cid, 'replaced', 'This seat was opened on another screen.'); } }
-          seat.cid = c.cid; seat.online = true; c.pid = seat.id; seat.inp.lj = null; seat.inp.ld = null;
+          seat.cid = c.cid; seat.online = true; c.pid = seat.id; seat.inp.lj = null; seat.inp.ld = null; seat.inp.lf = null;
           this.send(c.cid, { t: 'welcome', role: 'player', id: seat.id, token: seat.token, room: this.room, host: c.host });
           this.roomDirty = true; this.sendMe(seat);
         } else this.send(c.cid, { t: 'welcome', role: 'player', id: null, room: this.room, host: c.host });
@@ -246,6 +320,7 @@ class Engine {
         p.inp.x = l > 1 ? x / l : x; p.inp.y = l > 1 ? y / l : y;
         if (Number.isInteger(m.j)) { if (p.inp.lj === null) p.inp.lj = m.j; else if (m.j !== p.inp.lj) { p.inp.lj = m.j; p.inp.jump = true; } }
         if (Number.isInteger(m.d)) { if (p.inp.ld === null) p.inp.ld = m.d; else if (m.d !== p.inp.ld) { p.inp.ld = m.d; p.inp.dash = true; } }
+        if (Number.isInteger(m.f)) { if (p.inp.lf == null) p.inp.lf = m.f; else if (m.f !== p.inp.lf) { p.inp.lf = m.f; p.inp.fire = true; } }
         return;
       }
       case 'trap': if (!p) return; this.useTrap(p, m.k); return;
@@ -273,6 +348,12 @@ class Engine {
         if ([3, 5, 7].includes(s.rounds)) this.settings.rounds = s.rounds;
         if (typeof s.saboteurs === 'boolean') this.settings.saboteurs = s.saboteurs;
         if ([30, 45, 60, 90].includes(s.talk)) this.settings.talk = s.talk;
+        if (typeof s.powerups === 'boolean') this.settings.powerups = s.powerups;
+        if (Array.isArray(s.games)) {
+          const g = GAMES.filter(id => s.games.includes(id));
+          if (!g.length) fail('games', 'Pick at least one game.');
+          this.settings.games = g;
+        }
         break;
       }
       case 'addBot': {
@@ -323,17 +404,22 @@ class Engine {
   roundPlayers() { return this.players.filter(p => !p.waiting); }
   spawn(p, i) {
     const s = this.map.spawns[i % this.map.spawns.length];
-    p.b = { x: s[0] + (this.rng() - 0.5) * 6, y: s[1] + (this.rng() - 0.5) * 6, vx: 0, vy: 0, z: 0, vz: 0, face: this.map.kind === 'race' ? 0 : Math.atan2(470 - s[1], 800 - s[0]), stun: 0, dash: 0, dashCd: 0, state: 'run', fallT: 0, cp: -1, inv: 0, slip: 0, hit: null, hold: 0, emoteT: 0, place: 0, cd: [4, 4, 4], tile: -1 };
+    p.b = { x: s[0] + (this.rng() - 0.5) * 6, y: s[1] + (this.rng() - 0.5) * 6, vx: 0, vy: 0, z: 0, vz: 0, face: this.map.kind === 'race' ? 0 : Math.atan2(470 - s[1], 800 - s[0]), stun: 0, dash: 0, dashCd: 0, state: 'run', fallT: 0, cp: -1, inv: 0, slip: 0, hit: null, hold: 0, emoteT: 0, place: 0, cd: [4, 4, 4], tile: -1, hp: HP, faint: 0, ammo: 0, fireCd: 0 };
   }
 
   /* ----- match flow ----- */
   loadMap(id) { this.map = buildMap(id); this.ms = newMapState(this.map); this.players.forEach((p, i) => this.spawn(p, i)); }
   startMatch() {
     this.players.forEach(p => { p.score = 0; p.waiting = false; p.last = 0; });
-    const pool = ['tapri', 'papad', 'pankha'], list = [];
-    let bag = [];
-    while (list.length < this.settings.rounds - 1) { if (!bag.length) bag = shuffle(pool.slice(), this.rng); const n = bag.pop(); if (list[list.length - 1] !== n) list.push(n); else bag.unshift(n); }
-    list.push('king');
+    // the host's chosen games, shuffled without back-to-back repeats; the mukut finale closes the match when picked
+    const chosen = (this.settings.games || GAMES).filter(id => MAPS[id]), finale = chosen.includes('king');
+    let pool = chosen.filter(id => id !== 'king'); if (!pool.length) pool = ['king'];
+    const list = []; let bag = [];
+    while (list.length < this.settings.rounds - (finale && pool[0] !== 'king' ? 1 : 0)) {
+      if (!bag.length) bag = shuffle(pool.slice(), this.rng);
+      const n = bag.pop(); if (pool.length === 1 || list[list.length - 1] !== n) list.push(n); else bag.unshift(n);
+    }
+    if (finale && pool[0] !== 'king') list.push('king');
     this.playlist = list; this.round = 0; this.history = []; this.lastSabo = []; this.paused = false;
     this.nextRound();
   }
@@ -343,7 +429,7 @@ class Engine {
     this.loadMap(this.playlist[this.round - 1]);
     const ps = this.roundPlayers();
     this.saboteurs = [];
-    if (this.settings.saboteurs && this.map.kind !== 'crown' && ps.length >= 3) {
+    if (this.settings.saboteurs && ['race', 'survive'].includes(this.map.kind) && ps.length >= 3) {
       const count = ps.length >= 7 ? 2 : 1;
       let pool = ps.filter(p => !this.lastSabo.includes(p.id)); if (pool.length < count) pool = ps.slice();
       this.saboteurs = shuffle(pool, this.rng).slice(0, count).map(p => p.id);
@@ -351,7 +437,9 @@ class Engine {
     }
     this.sabo = {}; this.saboteurs.forEach(id => { this.sabo[id] = 0; });
     this.finishOrder = []; this.outOrder = []; this.votes = {}; this.result = null; this.stats = { falls: 0, peels: 0, quakes: 0, tricks: 0, hits: 0 };
-    this.quota = this.map.kind === 'race' ? Math.max(1, Math.ceil(ps.length * 0.6)) : this.map.kind === 'survive' ? Math.max(1, Math.floor(ps.length * 0.5)) : 0;
+    this.quota = this.map.kind === 'race' ? Math.max(1, Math.ceil(ps.length * 0.6)) : this.map.kind === 'survive' ? Math.max(1, Math.floor(ps.length * (this.map.keep || 0.5))) : this.map.kind === 'brawl' ? 1 : 0;
+    this.kos = {}; this.catches = {}; this.police = new Set();
+    if (this.map.kind === 'tag') { const n = Math.max(1, Math.round(ps.length / 4)); shuffle(ps.slice(), this.rng).slice(0, n).forEach(p => this.police.add(p.id)); }
     this.setPhase('intro', PHASE_SECS.intro);
     this.players.forEach(p => this.sendMe(p));
   }
@@ -370,9 +458,9 @@ class Engine {
       case 'scores': if (this.round >= this.playlist.length) this.finish(); else this.nextRound(); break;
     }
   }
-  toLobby() { this.phase = 'lobby'; this.paused = false; this.round = 0; this.saboteurs = []; this.result = null; this.players.forEach(p => { p.waiting = false; p.ready = p.bot; }); this.loadMap('aangan'); this.roomDirty = true; this.players.forEach(p => this.sendMe(p)); }
+  toLobby() { this.police = new Set(); this.phase = 'lobby'; this.paused = false; this.round = 0; this.saboteurs = []; this.result = null; this.players.forEach(p => { p.waiting = false; p.ready = p.bot; }); this.loadMap('aangan'); this.roomDirty = true; this.players.forEach(p => this.sendMe(p)); }
   finish() {
-    this.phase = 'finished'; this.paused = false; this.saboteurs = []; this.phaseLeft = 0; this.loadMap('aangan');
+    this.phase = 'finished'; this.paused = false; this.saboteurs = []; this.police = new Set(); this.phaseLeft = 0; this.loadMap('aangan');
     const ranked = this.players.slice().sort((a, b) => b.score - a.score);
     this.podium = ranked.slice(0, 3).map(p => p.id);
     this.roomDirty = true; this.players.forEach(p => this.sendMe(p));
@@ -388,6 +476,17 @@ class Engine {
     } else if (this.map.kind === 'survive') {
       qualified = ps.filter(p => p.b.state !== 'out').map(p => p.id);
       qualified.forEach(id => { gains[id] += 3; notes[id].push('Survived'); });
+    } else if (this.map.kind === 'brawl') {
+      const alive = ps.filter(p => p.b.state !== 'out');
+      qualified = alive.map(p => p.id);
+      alive.forEach(p => { gains[p.id] += 3; notes[p.id].push('Still standing'); });
+      if (alive.length === 1) { gains[alive[0].id] += 2; notes[alive[0].id].push('Last one standing'); }
+      for (const [id, n] of Object.entries(this.kos)) if (gains[id] != null) { const k = Math.min(4, n); gains[id] += k; notes[id].push('Threw out ' + k); }
+    } else if (this.map.kind === 'tag') {
+      const free = ps.filter(p => !this.police.has(p.id));
+      qualified = free.map(p => p.id);
+      free.forEach(p => { gains[p.id] += 4; notes[p.id].push('Never caught'); });
+      for (const [id, n] of Object.entries(this.catches)) if (gains[id] != null) { const k = Math.min(4, n); gains[id] += k; notes[id].push('Caught ' + k); }
     } else if (this.map.kind === 'crown') {
       const ranked = ps.filter(p => p.b.hold > 0).sort((a, b) => b.b.hold - a.b.hold);
       ranked.forEach((p, i) => { const g = [6, 4, 2][i] || 1; gains[p.id] += g; notes[p.id].push('Mukut held ' + p.b.hold.toFixed(1) + 's'); });
@@ -443,7 +542,8 @@ class Engine {
       }
       b.cd[1] = 9; this.stats.quakes++; this.fx.push(['w', cx | 0, cy | 0]);
     } else {
-      if (this.map.kind === 'race' || this.map.id === 'pankha' || this.map.kind === 'lobby') { this.ms.ulta = 3.5; this.ms.ultaBy = p.id; this.fx.push(['u']); }
+      if (this.map.trapName === 'Bomb') { this.addMine(b.x - Math.cos(b.face) * 40, b.y - Math.sin(b.face) * 40, p.id, 0.8); this.fx.push(['k', b.x | 0, b.y | 0]); }
+      else if (this.map.kind === 'race' || this.map.sweepers.length || this.map.tilt || this.map.kind === 'lobby') { this.ms.ulta = 3.5; this.ms.ultaBy = p.id; this.fx.push(['u']); }
       else if (this.ms.tiles) {
         const cx = b.x + jx, cy = b.y + jy;
         this.map.tiles.forEach((t, i) => { if (this.ms.tiles[i] === 0 && hyp(t.x - cx, t.y - cy) < 150) { this.ms.tiles[i] = 0.001; this.ms.tileBy[i] = p.id; } });
@@ -481,6 +581,8 @@ class Engine {
     const ps = this.roundPlayers(); if (!ps.length) return this.endRound();
     if (this.map.kind === 'race' && (this.finishOrder.length >= this.quota || ps.every(p => p.b.state === 'done'))) this.endRound();
     if (this.map.kind === 'survive' && ps.filter(p => p.b.state !== 'out').length <= this.quota) this.endRound();
+    if (this.map.kind === 'brawl' && ps.filter(p => p.b.state !== 'out').length <= 1) this.endRound();
+    if (this.map.kind === 'tag' && ps.every(p => this.police.has(p.id))) this.endRound();
   }
   botVotes(dt) {
     for (const p of this.roundPlayers()) {
@@ -501,10 +603,23 @@ class Engine {
   simulate(dt) {
     const map = this.map, ms = this.ms, playing = this.phase === 'play' || this.phase === 'lobby' || this.phase === 'finished';
     ms.t += dt;
-    const ultaK = ms.ulta > 0 ? -1.7 : 1; if (ms.ulta > 0) { ms.ulta -= dt; if (ms.ulta <= 0) ms.ultaBy = null; }
-    const el = this.phase === 'play' ? map.duration - this.phaseLeft : 99, spin = Math.min(1, el / 2.5);
-    ms.spin = spin;
-    map.sweepers.forEach((s, i) => { const sp = s.speed * spin * (1 + (s.ramp || 0) * (this.phase === 'play' ? el : 0)); ms.ang[i] += sp * ultaK * dt; });
+    const ultaK = ms.ulta > 0 ? (map.sweepers.some(q => q.rope) ? -1 : -1.7) : 1; if (ms.ulta > 0) { ms.ulta -= dt; if (ms.ulta <= 0) ms.ultaBy = null; }
+    const el = this.phase === 'play' ? map.duration - this.phaseLeft : 99, spin = Math.min(1, el / 2.5), inPlay = this.phase === 'play';
+    ms.spin = spin; ms.el = inPlay ? el : 0;
+    map.sweepers.forEach((s, i) => {
+      if (s.from) ms.swOn[i] = inPlay && el >= s.from;
+      const wave = s.wave && inPlay ? 1 + s.wave * Math.sin(el * 0.45 + i) : 1;
+      ms.swSp = ms.swSp || []; ms.swSp[i] = s.speed * spin * wave * (1 + (s.ramp || 0) * (inPlay ? el : 0)) * ultaK;
+      ms.ang[i] += ms.swSp[i] * dt;
+    });
+    // shrinking stages and the leaning sumo stage
+    const sf = map.floors.find(f => f.shrink);
+    if (sf) ms.k = inPlay ? 1 - (1 - sf.shrink.to) * clamp((el - sf.shrink.from) / sf.shrink.over, 0, 1) : 1;
+    if (map.tilt) {
+      const amp = inPlay ? Math.min(1, el / 20) * map.tilt.max : 0; ms.tilt.a += map.tilt.rate * dt * (1 + el * 0.01);
+      ms.tilt.x = Math.cos(ms.tilt.a) * amp * ultaK; ms.tilt.y = Math.sin(ms.tilt.a * 1.3) * amp * ultaK;
+    }
+    if (this.powerOn()) this.powerStep(dt);
     const platD = map.plats.map((p, i) => { const n = platPos(p, ms.t), o = ms.plat[i]; ms.plat[i] = n; return { dx: n.x - o.x, dy: n.y - o.y }; });
     map.movers.forEach((p, i) => { ms.mover[i] = platPos(p, ms.t); });
     map.bumpers.forEach((b, i) => { if (b.orbit) ms.bump[i] = orbitPos(b, ms.t); });
@@ -524,7 +639,9 @@ class Engine {
       if (b.state === 'fall') { b.fallT -= dt; b.z -= 600 * dt; if (b.fallT <= 0) this.afterFall(p); continue; }
       if (b.state !== 'run') continue;
       b.stun = Math.max(0, b.stun - dt); b.dash = Math.max(0, b.dash - dt); b.dashCd = Math.max(0, b.dashCd - dt);
-      b.inv = Math.max(0, b.inv - dt); b.slip = Math.max(0, b.slip - dt); b.emoteT = Math.max(0, b.emoteT - dt);
+      b.inv = Math.max(0, b.inv - dt); b.slip = Math.max(0, b.slip - dt); b.emoteT = Math.max(0, b.emoteT - dt); b.fireCd = Math.max(0, b.fireCd - dt);
+      if (map.kind === 'brawl' && b.faint <= 0 && b.hp < HP && (!b.hit || this.t - b.hit.t > 3)) b.hp = Math.min(HP, b.hp + 5 * dt);
+      if (b.faint > 0) { b.faint -= dt; b.stun = Math.max(b.stun, 0.1); if (b.faint <= 0) { b.faint = 0; b.hp = 60; b.inv = 1; b.stun = 0; this.fx.push(['wk', p.color]); } }
       for (let k = 0; k < 3; k++) if (this.phase === 'play') b.cd[k] = Math.max(0, b.cd[k] - dt);
       const ground = b.z <= 0, live = playing && this.phase !== 'roundEnd';
       let ix = live ? p.inp.x : 0, iy = live ? p.inp.y : 0;
@@ -532,17 +649,26 @@ class Engine {
       if (b.slip > 0) ctrl *= 0.12;
       const holder = ms.crown && ms.crown.holder === p.id;
       const sp = MAXS * (holder ? 0.86 : 1);
-      if (ctrl > 0) { const k = 1 - Math.exp(-ACC * ctrl * dt); b.vx += (ix * sp - b.vx) * k; b.vy += (iy * sp - b.vy) * k; }
-      else if (ground && b.dash <= 0) { const f = Math.exp(-(b.slip > 0 ? 0.6 : 4.6) * dt); b.vx *= f; b.vy *= f; }
+      const cop = this.police && this.police.has(p.id), held = cop && this.phase === 'play' && this.map.kind === 'tag' && this.map.duration - this.phaseLeft < 3;
+      const spd = held ? 0 : sp * (this.map.kind === 'tag' && !cop ? 1.05 : 1);
+      if (ctrl > 0) { const k = 1 - Math.exp(-ACC * ctrl * dt); b.vx += (ix * spd - b.vx) * k; b.vy += (iy * spd - b.vy) * k; }
+      else if (ground && b.dash <= 0) { const f = Math.exp(-(b.faint > 0 ? 1.3 : b.slip > 0 ? 0.6 : 4.6) * dt); b.vx *= f; b.vy *= f; }
+      if (ground && map.tilt) { b.vx += ms.tilt.x * dt; b.vy += ms.tilt.y * dt; }
+      if (p.inp.fire) { p.inp.fire = false; if (live && b.ammo > 0 && b.fireCd <= 0 && b.faint <= 0) this.fire(p); }
       if ((ix || iy) && b.stun <= 0) { const a = Math.atan2(iy, ix); let d = a - b.face; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; b.face += d * Math.min(1, 14 * dt); }
       if (p.inp.jump) { p.inp.jump = false; if (live && ground && b.stun <= 0) { b.vz = JUMPV; this.fx.push(['j', b.x | 0, b.y | 0, p.color]); } }
-      if (p.inp.dash) { p.inp.dash = false; if (live && b.dashCd <= 0 && b.stun <= 0) { b.dash = DASH_T; b.dashCd = DASH_CD; b.vx += Math.cos(b.face) * DASHV; b.vy += Math.sin(b.face) * DASHV; const s = hyp(b.vx, b.vy); if (s > 720) { b.vx *= 720 / s; b.vy *= 720 / s; } if (ground) b.vz = 160; this.fx.push(['d', b.x | 0, b.y | 0, p.color]); } }
+      if (p.inp.dash) { p.inp.dash = false; if (live && b.dashCd <= 0 && b.stun <= 0) { const brawl = map.kind === 'brawl', copDash = map.kind === 'tag' && this.police.has(p.id); b.dash = brawl ? 0.14 : DASH_T; b.dashCd = brawl ? 0.5 : copDash ? 1.9 : DASH_CD; b.vx += Math.cos(b.face) * DASHV * (brawl ? 0.6 : 1); b.vy += Math.sin(b.face) * DASHV * (brawl ? 0.6 : 1); const s = hyp(b.vx, b.vy); if (s > 720) { b.vx *= 720 / s; b.vy *= 720 / s; } if (ground && !brawl) b.vz = 160; this.fx.push(['d', b.x | 0, b.y | 0, p.color]); if (brawl) this.punch(p); } }
       if (ground) {
         const f = floorAt(map, ms, b.x, b.y);
         if (f && f.k === 'plat') { b.x += platD[f.i].dx; b.y += platD[f.i].dy; }
         for (const c of map.conveyors) if (inRect(b.x, b.y, c)) { b.x += c.vx * ultaK * dt; b.y += c.vy * ultaK * dt; }
       }
       b.x += b.vx * dt; b.y += b.vy * dt;
+      if (map.ropes && b.faint <= 0 && b.z < 40) {
+        const f = map.floors[0], x0 = f.x + R, x1 = f.x + f.w - R, y0 = f.y + R, y1 = f.y + f.h - R;
+        if (b.x < x0) { b.x = x0; b.vx = Math.abs(b.vx) * 0.6; } else if (b.x > x1) { b.x = x1; b.vx = -Math.abs(b.vx) * 0.6; }
+        if (b.y < y0) { b.y = y0; b.vy = Math.abs(b.vy) * 0.6; } else if (b.y > y1) { b.y = y1; b.vy = -Math.abs(b.vy) * 0.6; }
+      }
       if (b.z > 0 || b.vz > 0) { b.vz -= G * dt; b.z += b.vz * dt; if (b.z <= 0) { b.z = 0; b.vz = 0; this.fx.push(['l', b.x | 0, b.y | 0, p.color]); } }
     }
     this.collide(bodies, dt);
@@ -560,15 +686,10 @@ class Engine {
       a.x -= nx * push; a.y -= ny * push; c.x += nx * push; c.y += ny * push;
       const rel = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;
       if (rel < 0) { const im = -(1.45) * rel / 2; a.vx -= im * nx; a.vy -= im * ny; c.vx += im * nx; c.vy += im * ny; }
-      const hit = (atk, vic, sx, sy, pa, pv) => {
-        if (vic.inv > 0) return;
-        vic.vx = sx * KNOCK + atk.vx * 0.25; vic.vy = sy * KNOCK + atk.vy * 0.25; vic.vz = Math.max(vic.vz, 220);
-        vic.stun = STUN_HIT; vic.hit = { by: pa.id, t: this.t }; atk.dash = 0; atk.vx *= 0.3; atk.vy *= 0.3; this.buzz(pv, 'hit'); this.buzz(pa, 'bonk');
-        this.stats.hits++; this.fx.push(['h', ((atk.x + vic.x) / 2) | 0, ((atk.y + vic.y) / 2) | 0, pv.color]);
-        if (ms.crown && ms.crown.holder === pv.id) this.dropCrown(pv);
-      };
+      const hit = (atk, vic, sx, sy, pa, pv) => this.strike(pa, pv, sx, sy, 1);
       if (a.dash > 0 && c.dash <= 0) hit(a, c, nx, ny, live[i], live[j]);
       else if (c.dash > 0 && a.dash <= 0) hit(c, a, -nx, -ny, live[j], live[i]);
+      else if (a.dash > 0 && c.dash > 0 && this.map.kind === 'tag') { if (this.police.has(live[i].id) !== this.police.has(live[j].id)) (this.police.has(live[i].id) ? hit(a, c, nx, ny, live[i], live[j]) : hit(c, a, -nx, -ny, live[j], live[i])); }
       else if (a.dash > 0 && c.dash > 0) { a.vx = -nx * KNOCK * 0.7; a.vy = -ny * KNOCK * 0.7; c.vx = nx * KNOCK * 0.7; c.vy = ny * KNOCK * 0.7; a.dash = c.dash = 0; a.stun = c.stun = 0.35; this.fx.push(['h', ((a.x + c.x) / 2) | 0, ((a.y + c.y) / 2) | 0, -1]); }
     }
     for (const p of live) {
@@ -582,8 +703,8 @@ class Engine {
         if (ms.crown && ms.crown.holder === p.id) this.dropCrown(p);
       }
       for (let i = 0; i < map.sweepers.length; i++) {
-        const s = map.sweepers[i]; if (b.z >= s.h) continue;
-        const sp = s.speed * (ms.spin == null ? 1 : ms.spin) * (this.ms.ulta > 0 ? -1.7 : 1);
+        const s = map.sweepers[i]; if (b.z >= s.h || !ms.swOn[i]) continue;
+        const sp = (ms.swSp && ms.swSp[i] != null) ? ms.swSp[i] : s.speed * (ms.spin == null ? 1 : ms.spin) * (this.ms.ulta > 0 ? -1.7 : 1);
         for (let k = 0; k < s.arms; k++) {
           const a = ms.ang[i] + k * 2 * Math.PI / s.arms, ex = s.x + Math.cos(a) * s.len, ey = s.y + Math.sin(a) * s.len;
           const g = segDist(b.x, b.y, s.x, s.y, ex, ey), lim = s.w / 2 + R; if (g.d >= lim) continue;
@@ -591,7 +712,7 @@ class Engine {
           const rr = g.t * s.len, tx = -Math.sin(a) * sp * rr, ty = Math.cos(a) * sp * rr;
           if (nx * tx + ny * ty < 0 && g.d < lim * 0.6) { nx = -nx; ny = -ny; }
           b.x = g.cx + nx * lim; b.y = g.cy + ny * lim;
-          const strength = Math.min(900, Math.abs(sp * rr));
+          const strength = Math.min(900, Math.abs(sp * rr)) * (s.knock || 1);
           b.vx = tx * 0.95 + nx * (110 + strength * 0.25); b.vy = ty * 0.95 + ny * (110 + strength * 0.25); b.vz = Math.max(b.vz, 180);
           if (strength > 200) { b.stun = Math.max(b.stun, 0.4); this.fx.push(['h', b.x | 0, b.y | 0, p.color]); if (ms.crown && ms.crown.holder === p.id) this.dropCrown(p); }
           if (ms.ultaBy) b.hit = { by: ms.ultaBy, t: this.t };
@@ -609,7 +730,9 @@ class Engine {
 
   zones(p, dt) {
     const b = p.b, map = this.map, ms = this.ms;
-    if (b.x < -80 || b.x > W + 80 || b.y < -80 || b.y > H + 80) return this.startFall(p);
+    if (b.x < -80 || b.x > map.w + 80 || b.y < -80 || b.y > H + 80) return this.startFall(p);
+    for (const pu of ms.pickups) if (!pu.gone && b.faint <= 0 && b.z < 50 && hyp(pu.x - b.x, pu.y - b.y) < R + 18) { pu.gone = true; b.ammo = Math.min(AMMO + 2, b.ammo + AMMO); this.fx.push(['pk', p.color]); this.buzz(p, 'bonk'); p.meDirty = true; }
+    for (const mn of ms.mines) if (mn.arm <= 0 && mn.fuse < 0 && b.z < 20 && hyp(mn.x - b.x, mn.y - b.y) < R + 12) { mn.fuse = 0.22; mn.by = mn.by || null; this.fx.push(['mf', mn.x | 0, mn.y | 0]); }
     if (b.z > 0) return;
     const f = floorAt(map, ms, b.x, b.y);
     if (!f) return this.startFall(p);
@@ -637,16 +760,113 @@ class Engine {
     let by = b.hit && this.t - b.hit.t < BLAME_WINDOW ? b.hit.by : null;
     if (!by && this.ms.tileBy && b.tile >= 0 && this.ms.tileBy[b.tile]) by = this.ms.tileBy[b.tile];
     if (by && by !== p.id && this.saboteurs.includes(by)) this.sabo[by] = (this.sabo[by] || 0) + 1;
+    if (by && by !== p.id && this.map.kind === 'brawl') this.kos[by] = (this.kos[by] || 0) + 1;
   }
   afterFall(p) {
     const b = p.b, kind = this.map.kind;
-    if (kind === 'survive' && this.phase === 'play') { b.state = 'out'; this.outOrder.push(p.id); this.fx.push(['o', p.color]); this.roomDirty = true; this.sendMe(p); return; }
+    if ((kind === 'survive' || kind === 'brawl') && this.phase === 'play') { b.state = 'out'; this.outOrder.push(p.id); this.fx.push(['o', p.color]); this.roomDirty = true; this.sendMe(p); return; }
     let sx, sy;
     if (kind === 'race' && b.cp >= 0) { const c = this.map.checkpoints[b.cp]; sx = c.sx; sy = c.sy; }
     else { const s = this.map.spawns[Math.floor(this.rng() * this.map.spawns.length)]; sx = s[0]; sy = s[1]; }
     if (this.ms.tiles) { let best = -1, bd = 1e9; this.map.tiles.forEach((t, i) => { if (this.ms.tiles[i] === 0) { const d = hyp(t.x - 800, t.y - 450); if (d < bd) { bd = d; best = i; } } }); if (best >= 0) { sx = this.map.tiles[best].x; sy = this.map.tiles[best].y; } }
-    Object.assign(b, { x: sx + (this.rng() - 0.5) * 40, y: sy + (this.rng() - 0.5) * 40, vx: 0, vy: 0, z: 140, vz: 0, stun: 0, dash: 0, state: 'run', inv: 1.4, slip: 0, hit: null });
+    Object.assign(b, { x: sx + (this.rng() - 0.5) * 40, y: sy + (this.rng() - 0.5) * 40, vx: 0, vy: 0, z: 140, vz: 0, stun: 0, dash: 0, state: 'run', inv: 1.4, slip: 0, hit: null, faint: 0, hp: HP });
     this.fx.push(['r', p.color]);
+  }
+  /* ----- combat and explosives ----- */
+  // one hit: knockback, stun, brawl damage and fainting, tag conversions, mukut drops
+  strike(pa, pv, nx, ny, power) {
+    const atk = pa.b, vic = pv.b, ms = this.ms; if (vic.inv > 0) return;
+    const kind = this.map.kind, fainted = vic.faint > 0;
+    const knock = KNOCK * power * (this.map.knock || 1) * (kind === 'brawl' ? (fainted ? FAINT_KNOCK : 0.55) : 1);
+    vic.vx = nx * knock + atk.vx * 0.25; vic.vy = ny * knock + atk.vy * 0.25; vic.vz = Math.max(vic.vz, fainted ? 260 : 220);
+    if (!fainted) vic.stun = kind === 'brawl' ? 0.3 : STUN_HIT;
+    vic.hit = { by: pa.id, t: this.t }; atk.dash = 0; atk.vx *= 0.3; atk.vy *= 0.3; this.buzz(pv, 'hit'); this.buzz(pa, 'bonk');
+    this.stats.hits++; this.fx.push(['h', ((atk.x + vic.x) / 2) | 0, ((atk.y + vic.y) / 2) | 0, pv.color]);
+    if (kind === 'brawl' && !fainted) this.hurt(pv, PUNCH_DMG * power);
+    if (kind === 'tag' && this.phase === 'play' && this.police.has(pa.id) && !this.police.has(pv.id)) {
+      this.police.add(pv.id); this.catches[pa.id] = (this.catches[pa.id] || 0) + 1; vic.inv = 1.2;
+      this.fx.push(['tg', pv.color, pa.color]); this.roomDirty = true; pv.meDirty = true;
+    }
+    if (ms.crown && ms.crown.holder === pv.id) this.dropCrown(pv);
+  }
+  hurt(p, dmg) {
+    const b = p.b; if (this.map.kind !== 'brawl' || b.faint > 0 || this.phase !== 'play') return;
+    b.hp = Math.max(0, b.hp - dmg); p.meDirty = true;
+    if (b.hp <= 0) { b.faint = FAINT_T; b.stun = FAINT_T; this.fx.push(['ko', p.color]); this.buzz(p, 'fall'); }
+  }
+  // brawl punches reach a little further than a body bump
+  punch(p) {
+    const b = p.b, cx = Math.cos(b.face), cy = Math.sin(b.face);
+    let best = null, bd = 1e9;
+    for (const q of this.roundPlayers()) {
+      if (q === p || q.b.state !== 'run' || Math.abs(q.b.z - b.z) > 50) continue;
+      const dx = q.b.x - b.x, dy = q.b.y - b.y, d = hyp(dx, dy); if (d > 2 * R + 34 || d < 0.01) continue;
+      if ((dx * cx + dy * cy) / d < 0.45) continue; if (d < bd) { bd = d; best = q; }
+    }
+    if (best) this.strike(p, best, (best.b.x - b.x) / bd, (best.b.y - b.y) / bd, 1);
+  }
+  powerOn() { return !!this.map.power || (this.settings.powerups && ['race', 'survive', 'crown', 'tag', 'brawl', 'lobby'].includes(this.map.kind)); }
+  randomSpot(margin) {
+    const bd = this.map.bounds;
+    for (let i = 0; i < 40; i++) {
+      const x = bd.x0 + this.rng() * (bd.x1 - bd.x0), y = bd.y0 + this.rng() * (bd.y1 - bd.y0);
+      const f = floorAt(this.map, this.ms, x, y); if (!f || f.k === 'plat') continue;
+      if (this.map.tiles && this.ms.tiles[f.i] !== 0) continue;
+      if (this.map.finish && inRect(x, y, this.map.finish)) continue;
+      if (this.map.spawns.some(s => hyp(s[0] - x, s[1] - y) < 50)) continue;
+      if (!floorAt(this.map, this.ms, x + margin, y) || !floorAt(this.map, this.ms, x - margin, y) || !floorAt(this.map, this.ms, x, y + margin) || !floorAt(this.map, this.ms, x, y - margin)) continue;
+      if (this.players.some(q => !q.waiting && hyp(q.b.x - x, q.b.y - y) < 80)) continue;
+      return { x, y };
+    }
+    return null;
+  }
+  addMine(x, y, by, arm) { const ms = this.ms; if (ms.mines.length >= 12) ms.mines.shift(); ms.mines.push({ x, y, arm: arm == null ? 1.2 : arm, fuse: -1, by: by || null }); }
+  powerStep(dt) {
+    const ms = this.ms, map = this.map, live = this.phase === 'play' || this.phase === 'lobby';
+    const race = map.kind === 'race', maxM = map.mines || (race ? 6 : 3), maxP = map.pickups || 2;
+    if (live) {
+      ms.mineT -= dt; ms.pickT -= dt;
+      if (ms.mineT <= 0) { ms.mineT = race ? 2.4 : 4.2; if (ms.mines.filter(m => !m.by).length < maxM) { const q = this.randomSpot(30); if (q) this.addMine(q.x, q.y, null); } }
+      if (ms.pickT <= 0) { ms.pickT = 4.5; ms.pickups = ms.pickups.filter(u => !u.gone); if (ms.pickups.length < maxP) { const q = this.randomSpot(36); if (q) ms.pickups.push({ x: q.x, y: q.y }); } }
+    }
+    ms.pickups = ms.pickups.filter(u => !u.gone && floorAt(map, ms, u.x, u.y));
+    for (const m of ms.mines) { if (m.arm > 0) m.arm -= dt; if (m.fuse >= 0) { m.fuse -= dt; if (m.fuse < 0) { m.dead = true; this.explode(m.x, m.y, BLAST_R, m.by); } } if (!floorAt(map, ms, m.x, m.y)) m.dead = true; }
+    ms.mines = ms.mines.filter(m => !m.dead);
+    for (const sh of ms.shots) {
+      sh.age += dt; sh.x += sh.vx * dt; sh.y += sh.vy * dt;
+      let boom = sh.age > 1.3;
+      for (const q of this.roundPlayers()) if (!boom && q.b.state === 'run' && q.b.z < 90 && !(q.id === sh.by && sh.age < 0.3) && hyp(q.b.x - sh.x, q.b.y - sh.y) < R + 12) boom = true;
+      for (const m of ms.mines) if (!boom && hyp(m.x - sh.x, m.y - sh.y) < 28) { boom = true; m.fuse = 0.05; m.by = sh.by; }
+      if (boom) { sh.dead = true; this.explode(sh.x, sh.y, 120, sh.by); }
+    }
+    ms.shots = ms.shots.filter(sh => !sh.dead);
+  }
+  // a blast throws everyone near it outward and up; chains into nearby bombs
+  explode(x, y, r, by) {
+    this.fx.push(['x', x | 0, y | 0, r]); this.stats.quakes++;
+    for (const q of this.roundPlayers()) {
+      const b = q.b; if (b.state !== 'run' || b.z > 140) continue;
+      const d = hyp(b.x - x, b.y - y); if (d > r) continue;
+      const nx = (b.x - x) / (d || 1), ny = (b.y - y) / (d || 1), f = 240 + 420 * (1 - d / r);
+      b.vx = nx * f; b.vy = ny * f; b.vz = 320 + 220 * (1 - d / r); b.stun = Math.max(b.stun, 0.7);
+      if (by && by !== q.id) b.hit = { by, t: this.t };
+      if (this.map.kind === 'brawl') this.hurt(q, 8 + 18 * (1 - d / r));
+      this.buzz(q, 'hit');
+      if (this.ms.crown && this.ms.crown.holder === q.id) this.dropCrown(q);
+    }
+    for (const m of this.ms.mines) if (m.fuse < 0 && hyp(m.x - x, m.y - y) < r * 0.7) { m.fuse = 0.12; m.by = m.by || by; }
+  }
+  // rockets fly where you face, bending toward the nearest player in front
+  fire(p) {
+    const b = p.b; let ax = Math.cos(b.face), ay = Math.sin(b.face), best = null, bs = 0.82;
+    for (const q of this.roundPlayers()) {
+      if (q === p || q.b.state !== 'run') continue; const dx = q.b.x - b.x, dy = q.b.y - b.y, d = hyp(dx, dy); if (d > 620 || d < 1) continue;
+      const dot = (dx * ax + dy * ay) / d; if (dot > bs) { bs = dot; best = { dx: dx / d, dy: dy / d }; }
+    }
+    if (best) { ax = best.dx; ay = best.dy; }
+    b.ammo--; b.fireCd = 0.45; p.meDirty = true;
+    this.ms.shots.push({ x: b.x + ax * (R + 8), y: b.y + ay * (R + 8), vx: ax * SHOT_V, vy: ay * SHOT_V, age: 0, by: p.id });
+    b.vx -= ax * 90; b.vy -= ay * 90; this.fx.push(['fr', b.x | 0, b.y | 0, p.color]);
   }
   dropCrown(p) {
     const c = this.ms.crown; if (!c || c.holder !== p.id) return;
@@ -686,6 +906,8 @@ class Engine {
       if (near > ai.wp || (near < ai.wp - 2)) ai.wp = near;
       const w = route[ai.wp]; if (hyp(w[0] - b.x, w[1] - b.y) < 46 && ai.wp < route.length - 1) ai.wp++;
       tx = route[ai.wp][0]; ty = route[ai.wp][1];
+      // wait for the thali ferry: never step toward a waypoint with no floor under it
+      if (!floorAt(map, ms, tx, ty)) { p.inp.x = p.inp.y = 0; return; }
     } else if (map.id === 'papad') {
       ai.re = (ai.re || 0) - 0.1;
       const under = floorAt(map, ms, b.x, b.y);
@@ -701,6 +923,31 @@ class Engine {
       if (ai.tile >= 0) { tx = map.tiles[ai.tile].x; ty = map.tiles[ai.tile].y; if (hyp(tx - b.x, ty - b.y) < 40) ai.re = 0; }
     } else if (map.id === 'pankha') {
       const a = Math.atan2(b.y - 470, b.x - 800) + 0.5; tx = 800 + Math.cos(a) * 250; ty = 470 + Math.sin(a) * 250;
+    } else if (kind === 'brawl' || map.id === 'patakha' || map.id === 'sumo') {
+      // fight: go for the nearest standing player, finish off fainted ones near the edge, collect rockets
+      let tgt = null, td = 1e9;
+      const mx = (map.bounds.x0 + map.bounds.x1) / 2, my = (map.bounds.y0 + map.bounds.y1) / 2, rad = Math.min(map.bounds.x1 - map.bounds.x0, map.bounds.y1 - map.bounds.y0) * 0.5 * (map.ropes ? 1 : ms.k);
+      const mine = hyp(b.x - mx, b.y - my);
+      for (const q of this.roundPlayers()) { if (q === p || q.b.state !== 'run') continue; if (!map.ropes && hyp(q.b.x - mx, q.b.y - my) < mine - 20 && q.b.faint <= 0) continue; const d = hyp(q.b.x - b.x, q.b.y - b.y) - (q.b.faint > 0 ? 160 : 0); if (d < td) { td = d; tgt = q; } }
+      const pu = ms.pickups.find(u => !u.gone && hyp(u.x - b.x, u.y - b.y) < 360);
+      if (b.ammo <= 0 && pu) { tx = pu.x; ty = pu.y; }
+      else if (tgt) { tx = tgt.b.x; ty = tgt.b.y; if (b.ammo > 0 && hyp(tx - b.x, ty - b.y) < 520 && this.rng() < 0.03) p.inp.fire = true; }
+      else { tx = 800; ty = 470; }
+      if (map.tilt) { tx -= ms.tilt.x * 0.25; ty -= ms.tilt.y * 0.25; }
+      if (!map.ropes && mine > rad * 0.55) { tx = mx; ty = my; }
+    } else if (map.id === 'rassi') {
+      const a = Math.atan2(b.y - 470, b.x - 800) + 0.3; tx = 800 + Math.cos(a) * 150; ty = 470 + Math.sin(a) * 150;
+    } else if (kind === 'tag') {
+      const cop = this.police.has(p.id); let tgt = null, td = 1e9;
+      for (const q of this.roundPlayers()) { if (q === p || q.b.state !== 'run' || this.police.has(q.id) === cop) continue; const d = hyp(q.b.x - b.x, q.b.y - b.y); if (d < td) { td = d; tgt = q; } }
+      if (cop && tgt) { tx = tgt.b.x + tgt.b.vx * 0.3; ty = tgt.b.y + tgt.b.vy * 0.3; }
+      else if (!cop && tgt && td < 450) {
+        // run away, juke sideways when the cop gets close, and drift back from the fence
+        const ax = b.x - tgt.b.x, ay = b.y - tgt.b.y, l = hyp(ax, ay) || 1, side = (ai.side = ai.side || (this.rng() < 0.5 ? 1 : -1)) * (td < 120 ? 1.4 : 0.4);
+        tx = b.x + (ax / l - ay / l * side) * 200 + (800 - b.x) * 0.35; ty = b.y + (ay / l + ax / l * side) * 200 + (470 - b.y) * 0.35;
+        if (td < 70 && b.dashCd <= 0 && this.rng() < 0.3) p.inp.dash = true;
+      }
+      else { if (!ai.tx || hyp(ai.tx - b.x, ai.ty - b.y) < 40 || this.rng() < 0.02) { ai.tx = 300 + this.rng() * 1000; ai.ty = 200 + this.rng() * 540; } tx = ai.tx; ty = ai.ty; }
     } else if (kind === 'crown') {
       const c = ms.crown; tx = c.x; ty = c.y;
       if (c.holder === p.id) { const a = Math.atan2(b.y - 470, b.x - 800) + 0.9; tx = 800 + Math.cos(a) * 180; ty = 470 + Math.sin(a) * 180; }
@@ -711,7 +958,7 @@ class Engine {
     let dx = tx - b.x, dy = ty - b.y, d = hyp(dx, dy) || 1; dx /= d; dy /= d;
     const tileOk = (x, y) => map.tiles.some((t, i) => ms.tiles[i] >= 0 && ms.tiles[i] < TILE_CRACK * 0.45 && hyp(x - t.x, y - t.y) <= t.r - 6);
     const safe = (vx, vy) => {
-      for (const s of [30, 64, 100]) { const x = b.x + vx * s, y = b.y + vy * s; if (map.tiles ? !tileOk(x, y) : !floorAt(map, ms, x, y)) return false; }
+      for (const s of [30, 64, 100]) { const x = b.x + vx * s, y = b.y + vy * s; if (map.tiles ? !tileOk(x, y) : !floorAt(map, ms, x, y)) return false; if (ms.mines.some(m => hyp(m.x - x, m.y - y) < 40)) return false; }
       return true;
     };
     if (!safe(dx, dy)) {
@@ -720,6 +967,7 @@ class Engine {
       if (!found) {
         let gx = 800, gy = 470;
         if (map.tiles) { let bd = 1e9; map.tiles.forEach((t, i) => { if (ms.tiles[i] >= 0 && ms.tiles[i] < TILE_CRACK * 0.45) { const dd = hyp(t.x - b.x, t.y - b.y); if (dd < bd) { bd = dd; gx = t.x; gy = t.y; } } }); }
+        else { gx = (map.bounds.x0 + map.bounds.x1) / 2; gy = (map.bounds.y0 + map.bounds.y1) / 2; if (map.kind === 'race') { const c = b.cp >= 0 ? map.checkpoints[b.cp] : null; if (c) { gx = c.sx; gy = c.sy; } } }
         dx = gx - b.x; dy = gy - b.y; const l = hyp(dx, dy) || 1; dx /= l; dy /= l;
       }
     }
@@ -727,15 +975,25 @@ class Engine {
     p.inp.x = dx * slow; p.inp.y = dy * slow;
     for (let i = 0; i < map.sweepers.length; i++) {
       const s = map.sweepers[i]; if (s.h > 200) continue;
+      if (!ms.swOn[i]) continue;
+      if (s.rope) {
+        // time the jump: when will an arm sweep past this spot? Airborne above the rope from about 0.08 s to 0.55 s.
+        const r0 = hyp(b.x - s.x, b.y - s.y), w = (ms.swSp && ms.swSp[i]) || s.speed; if (r0 > s.len + R || Math.abs(w) < 0.05) continue;
+        const th = Math.atan2(b.y - s.y, b.x - s.x);
+        for (let k = 0; k < s.arms; k++) { let d = (th - (ms.ang[i] + k * 2 * Math.PI / s.arms)) * Math.sign(w); d = ((d % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); const tArr = d / Math.abs(w) - R / Math.max(60, r0 * Math.abs(w)); if (tArr > 0.12 && tArr < 0.4 && b.z <= 0) p.inp.jump = true; }
+        continue;
+      }
       for (let k = 0; k < s.arms; k++) { const a = ms.ang[i] + k * 2 * Math.PI / s.arms; const g = segDist(b.x, b.y, s.x, s.y, s.x + Math.cos(a) * s.len, s.y + Math.sin(a) * s.len); if (g.d < 62 && this.rng() < 0.55) p.inp.jump = true; }
     }
     const sab = this.saboteurs && this.saboteurs.includes(p.id);
     for (const q of this.players) {
       if (q === p || q.waiting || q.b.state !== 'run') continue;
       const ox = q.b.x - b.x, oy = q.b.y - b.y, od = hyp(ox, oy);
-      if (od < 70 && (ox * Math.cos(b.face) + oy * Math.sin(b.face)) / (od || 1) > 0.7 && this.rng() < (sab ? 0.2 : kind === 'crown' && ms.crown.holder === q.id ? 0.5 : kind === 'survive' ? 0.015 : 0.04)) p.inp.dash = true;
+      const fight = kind === 'brawl' ? 0.06 : kind === 'tag' && this.police.has(p.id) && !this.police.has(q.id) ? 0.1 : map.id === 'sumo' || map.id === 'patakha' ? 0.03 : 0;
+      if (od < (kind === 'brawl' ? 80 : 70) && (ox * Math.cos(b.face) + oy * Math.sin(b.face)) / (od || 1) > 0.7 && this.rng() < (fight || (sab ? 0.2 : kind === 'crown' && ms.crown.holder === q.id ? 0.5 : kind === 'survive' ? 0.015 : 0.04))) p.inp.dash = true;
+      if (b.ammo > 0 && od < 500 && od > 90 && (ox * Math.cos(b.face) + oy * Math.sin(b.face)) / (od || 1) > 0.85 && this.rng() < 0.02) p.inp.fire = true;
     }
-    if (sab && this.phase === 'play' && this.rng() < 0.025) { const k = Math.floor(this.rng() * 3); this.useTrap(p, k); }
+    if (sab && this.phase === 'play' && this.rng() < 0.007) { const k = Math.floor(this.rng() * 3); this.useTrap(p, k); }
     if (this.rng() < 0.004) { p.b.emoteT = 1.6; this.fx.push(['e', p.color, Math.floor(this.rng() * 3)]); }
   }
 
@@ -745,16 +1003,18 @@ class Engine {
     this.meTimer -= dt;
     const tickMe = this.meTimer <= 0; if (tickMe) this.meTimer = this.phase === 'play' ? 0.5 : 2;
     for (const p of this.players) if (p.cid && (p.meDirty || tickMe)) { p.meDirty = false; this.sendMe(p); }
-    if (this.physicsOn() || ['intro', 'countdown', 'roundEnd'].includes(this.phase)) this.cast('D', this.snapshot());
-    else if (this.fx.length) this.cast('D', { t: 's', fx: this.fx.splice(0) });
+    // phones render their own camera too, so everyone gets the world snapshot
+    if (this.physicsOn() || ['intro', 'countdown', 'roundEnd'].includes(this.phase)) this.cast('*', this.snapshot());
+    else if (this.fx.length) this.cast('*', { t: 's', fx: this.fx.splice(0) });
     this.fx = [];
   }
   snapshot() {
     const ms = this.ms, out = { t: 's', mt: +ms.t.toFixed(3), ph: this.phase, left: +Math.max(0, this.phaseLeft).toFixed(2), p: [], fx: this.fx.slice(0, 80) };
     for (const p of this.players) {
       if (p.waiting) continue; const b = p.b;
-      const fl = (b.dash > 0 ? 1 : 0) | (b.state === 'fall' ? 2 : 0) | (b.state === 'out' ? 4 : 0) | (b.state === 'done' ? 8 : 0) | (ms.crown && ms.crown.holder === p.id ? 16 : 0) | (b.inv > 0 ? 32 : 0) | (b.slip > 0 ? 64 : 0) | (b.emoteT > 0 ? 128 : 0);
-      out.p.push([p.color, Math.round(b.x), Math.round(b.y), Math.round(b.z), Math.round(b.vx), Math.round(b.vy), Math.round(b.face * 100), Math.round(b.stun * 100), fl, b.place || 0]);
+      const fl = (b.dash > 0 ? 1 : 0) | (b.state === 'fall' ? 2 : 0) | (b.state === 'out' ? 4 : 0) | (b.state === 'done' ? 8 : 0) | (ms.crown && ms.crown.holder === p.id ? 16 : 0) | (b.inv > 0 ? 32 : 0) | (b.slip > 0 ? 64 : 0) | (b.emoteT > 0 ? 128 : 0)
+        | (b.faint > 0 ? 256 : 0) | (this.police && this.police.has(p.id) ? 512 : 0) | (b.ammo > 0 ? 1024 : 0);
+      out.p.push([p.color, Math.round(b.x), Math.round(b.y), Math.round(b.z), Math.round(b.vx), Math.round(b.vy), Math.round(b.face * 100), Math.round(b.stun * 100), fl, b.place || 0, Math.round(b.hp)]);
     }
     if (ms.ang.length) out.sw = ms.ang.map(a => Math.round(a * 1000));
     if (ms.plat.length) out.pl = ms.plat.map(q => [Math.round(q.x), Math.round(q.y)]);
@@ -764,6 +1024,12 @@ class Engine {
     if (ms.peels.length) out.pe = ms.peels.map(pe => [Math.round(pe.x), Math.round(pe.y)]);
     if (ms.crown) { const c = ms.crown, h = c.holder && this.byId(c.holder); out.cr = [Math.round(c.x), Math.round(c.y), Math.round(c.z), h ? h.color : -1]; }
     if (ms.ulta > 0) out.u = 1;
+    if (ms.mines.length) out.mn = ms.mines.map(m => [Math.round(m.x), Math.round(m.y), m.fuse >= 0 ? 2 : m.arm > 0 ? 0 : 1]);
+    if (ms.pickups.length) out.pu = ms.pickups.filter(u => !u.gone).map(u => [Math.round(u.x), Math.round(u.y)]);
+    if (ms.shots.length) out.pj = ms.shots.map(sh => [Math.round(sh.x), Math.round(sh.y), Math.round(sh.vx), Math.round(sh.vy)]);
+    if (this.map.floors.some(f => f.shrink)) out.sk = Math.round(ms.k * 1000);
+    if (this.map.tilt) out.ti = [Math.round(ms.tilt.x), Math.round(ms.tilt.y)];
+    if (this.map.sweepers.some(sw => sw.from)) out.so = ms.swOn.map(v => v ? 1 : 0).join('');
     return out;
   }
   roomState() {
@@ -772,7 +1038,9 @@ class Engine {
     return {
       t: 'room', room: this.room, phase, paused: this.paused, left: +Math.max(0, this.phaseLeft).toFixed(2),
       round: this.round, rounds: this.playlist.length || this.settings.rounds, playlist: this.playlist, map: { id: this.map.id, name: this.map.name, kind: this.map.kind, blurb: this.map.blurb, duration: this.map.duration },
-      settings: Object.assign({}, this.settings), quota: this.quota || 0, saboteurCount: (this.saboteurs || []).length,
+      settings: Object.assign({}, this.settings, { games: this.settings.games.slice() }),
+      catalog: ['lobby', 'finished'].includes(phase) ? GAMES.map(id => { const m = MAPS[id](); return { id, name: m.name, kind: m.kind }; }) : null, quota: this.quota || 0, saboteurCount: (this.saboteurs || []).length,
+      police: this.police ? [...this.police] : [],
       players: this.players.map(p => ({ id: p.id, name: p.name, color: p.color, look: p.look, score: p.score, last: p.last || 0, ready: p.ready, bot: p.bot, online: p.online, waiting: p.waiting, st: p.b ? p.b.state : 'run', place: p.b ? p.b.place : 0, voted: !!(this.votes && this.votes[p.id]), hold: p.b ? +p.b.hold.toFixed(1) : 0 })),
       result: showResult ? {
         qualified: r.qualified, gains: (phase === 'scores' || revealed) ? r.gains : null, notes: (phase === 'scores' || revealed) ? r.notes : null,
@@ -786,13 +1054,15 @@ class Engine {
   sendMe(p) {
     if (!p.cid) { p.meDirty = false; return; }
     const sab = this.saboteurs && this.saboteurs.includes(p.id) && !['lobby', 'finished'].includes(this.phase);
-    const role = ['lobby', 'finished'].includes(this.phase) || p.waiting ? null : this.map.kind === 'crown' ? 'king' : sab ? 'saboteur' : 'racer';
+    const idle = ['lobby', 'finished'].includes(this.phase) || p.waiting, kind = this.map.kind;
+    const role = idle ? null : kind === 'crown' ? 'king' : kind === 'tag' ? (this.police.has(p.id) ? 'police' : 'chor') : kind === 'brawl' ? 'boxer' : sab ? 'saboteur' : 'racer';
     const me = {
       t: 'me', id: p.id, name: p.name, color: p.color, look: p.look, ready: p.ready, score: p.score, last: p.last || 0, waiting: p.waiting, phase: this.phase,
       role, partners: sab ? this.saboteurs.filter(id => id !== p.id).map(id => (this.byId(id) || {}).name).filter(Boolean) : [],
       traps: sab ? this.trapNames() : null, emotes: EMOTES, cd: sab ? p.b.cd.map(v => +v.toFixed(2)) : null,
       st: p.b ? p.b.state : 'run', place: p.b ? p.b.place : 0, vote: this.votes ? this.votes[p.id] || null : null,
-      rank: 1 + this.players.filter(q => q.score > p.score).length, map: this.map.kind
+      rank: 1 + this.players.filter(q => q.score > p.score).length, map: this.map.kind, mapId: this.map.id,
+      hp: p.b ? Math.round(p.b.hp) : HP, faint: p.b ? +p.b.faint.toFixed(1) : 0, ammo: p.b ? p.b.ammo : 0, power: this.powerOn()
     };
     this.send(p.cid, me);
   }
@@ -800,5 +1070,5 @@ class Engine {
 function shuffle(a, rng) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function fail(code, message) { const e = new Error(message); e.code = code; throw e; }
 
-return { Engine, buildMap, newMapState, floorAt, platPos, orbitPos, segDist, W, H, R, SEATS, EMOTES, TILE_CRACK };
+return { Engine, buildMap, newMapState, floorAt, platPos, orbitPos, segDist, W, H, R, SEATS, EMOTES, TILE_CRACK, GAMES, HP };
 });

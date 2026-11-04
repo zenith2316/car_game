@@ -43,6 +43,30 @@ Over the arena the controller stays out of the way: a small "Hold to see your ro
 
 Both modes open the controller page with the host token, and the engine gives host rights to any connection that holds it, display or player.
 
+## Modes, power-ups and your own camera (version 1.5)
+
+**Nine games.** The host picks which ones play in a match under **Games** in the lobby (or in the Host panel on a phone). Dhakka King is the finale and always plays last when picked.
+
+| Game | Kind | How it works |
+|---|---|---|
+| Tapri Dash | Race | About twice as long: belan bridges, a rope bridge, thalis, a kulhad slalom, a thali ferry over a gap and crate pushers. First 60% qualify. |
+| Papad Floor | Survival | Papads crack under you. Half survive. |
+| Pankha Panic | Survival | Jump the fan blades. Half survive. |
+| Akhada Brawl | Boxing | Dhakka is a punch. Punches drain health and you heal a little when out of the fight. At zero you faint for about 3.5 s and cannot move. The ring ropes hold you, unless you have fainted or a blast throws you, so fainted boxers can be thrown out. Survivors and the last one standing score, plus a point per boxer you threw out. |
+| Patakha Party | Survival | Bombs and rocket boxes everywhere on a stage that shrinks. 40% survive. |
+| Mela Sumo | Survival | Shove people off a stage that leans, drifts and shrinks. 30% survive. |
+| Rassi Kood | Survival | Jump two spinning ropes that speed up in waves. The second rope joins after 25 s. Half survive. |
+| Chor Police | Tag | About a quarter start as Police (flashing siren) and wait 3 s. A Police dhakka catches a Chor, who joins the Police. Chors are a little faster. Free Chors score 4. Police score per catch. |
+| Dhakka King | Finale | Hold the mukut the longest. |
+
+The Chupa Rustam only plays in races and survival rounds. In Patakha Party their third trap drops a bomb. On the rope maps, Ulta reverses the ropes without speeding them up.
+
+**Power-ups** (Host: Power-ups On/Off, always on in Akhada and Patakha):
+- **Anaar bombs:** they appear on the floor, arm after a moment and blow up shortly after you step on one. Blasts throw nearby players up and out and set off other bombs nearby.
+- **Rocket boxes:** grab one for 3 rockets. A **Fire** button appears on your controller. Rockets fly where you face, bending toward the nearest player in front, and explode on players or bombs.
+
+**Your own camera.** Every phone now renders the arena itself, following your character at the same angle and height as the big screen's close shot. The big screen stays the shared spectator view. Phones use light graphics: the procedural world plus the 10 MB character model, not the 100 MB HD pack. In landscape the pad sits in the corners. Upright, the camera keeps your character in the clear strip above the thumb pad. **3D view on/off** on the lobby card turns it off for older phones. When the host plays on the shared screen, they keep the shared view.
+
 ## Architecture (reused from IKKP, upgraded for real time)
 
 ```

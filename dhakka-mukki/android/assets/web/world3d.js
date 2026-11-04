@@ -98,6 +98,7 @@ export function buildWorld(map, Dhakka) {
   const depth = map.theme === 'pankha' || map.theme === 'king' ? 70 : 54;
   // floors
   map.floors.forEach((f, i) => {
+    const before = root.children.length;
     const col = theme.slabs[i % theme.slabs.length];
     let top, shape, tex;
     if (f.t === 'rect') {
@@ -109,7 +110,9 @@ export function buildWorld(map, Dhakka) {
     }
     top = M('#FFFFFF', 0.55, { map: tex });
     root.add(slabMesh(shape, depth, top, M(shade(theme.side, 1), 0.65)));
+    wrapStage(root, before, f, map, dyn);
   });
+  ringRopes(root, map);
   // underside glow ring for round arenas
   // papads (instanced)
   if (map.tiles) {
@@ -168,7 +171,8 @@ export function buildWorld(map, Dhakka) {
     const g = new THREE.Group(), high = s.h > 200, theme3 = map.theme;
     for (let k = 0; k < s.arms; k++) {
       const arm = new THREE.Group(); arm.rotation.y = -k * TAU / s.arms; g.add(arm);
-      if (theme3 === 'pankha') {
+      if (s.rope) ropeArm(arm, s);
+      else if (theme3 === 'pankha') {
         if (high) {
           const wall = new THREE.Mesh(new THREE.BoxGeometry(s.len, 96, s.w), M('#9AA3B5', 0.3, { metalness: 0.6 })); wall.position.set(s.len / 2, 48, 0); arm.add(wall);
           const stripe = new THREE.Mesh(new THREE.BoxGeometry(s.len - 10, 12, s.w + 1), M('#E8177D', 0.4)); stripe.position.set(s.len / 2, 70, 0); arm.add(stripe);
@@ -188,7 +192,8 @@ export function buildWorld(map, Dhakka) {
     if (theme3 === 'pankha' && !high) {
       const motor = new THREE.Mesh(new THREE.CylinderGeometry(52, 60, 44, 40), M('#C9CED8', 0.25, { metalness: 0.8 })); motor.position.y = 22; g.add(motor);
       const cap = new THREE.Mesh(new THREE.SphereGeometry(30, 24, 12, 0, TAU, 0, Math.PI / 2), M('#E8177D', 0.35)); cap.position.y = 44; g.add(cap);
-    } else if (!high) { const hub = new THREE.Mesh(new THREE.CylinderGeometry(14, 16, 30, 20), M('#7A4A22', 0.5)); hub.position.y = 15; g.add(hub); }
+    } else if (s.rope) { const hub = new THREE.Mesh(new THREE.CylinderGeometry(16, 20, 26, 20), M('#E8177D', 0.4)); hub.position.y = 13; g.add(hub); }
+    else if (!high) { const hub = new THREE.Mesh(new THREE.CylinderGeometry(14, 16, 30, 20), M('#7A4A22', 0.5)); hub.position.y = 15; g.add(hub); }
     g.position.set(s.x, 0, s.y);
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     root.add(g); dyn.sweepers.push({ g, s });
@@ -251,8 +256,37 @@ export function buildWorld(map, Dhakka) {
 }
 
 /* Per-frame update of moving map parts from the interpolated snapshot. */
+/* A shrinking or leaning stage: gather the floor's meshes into a group centred on the floor, so it can scale and tilt. */
+export function wrapStage(root, before, f, map, dyn) {
+  if (!f.shrink && !map.tilt) return;
+  const cx = f.t === 'circ' ? f.x : f.x + f.w / 2, cz = f.t === 'circ' ? f.y : f.y + f.h / 2;
+  const g = new THREE.Group(); g.position.set(cx, 0, cz);
+  for (const o of root.children.splice(before)) { o.position.x -= cx; o.position.z -= cz; g.add(o); }
+  root.add(g); (dyn.stage = dyn.stage || []).push({ g, f });
+}
+/* Boxing-ring ropes along a fenced floor (the corner posts are the map's bumpers). */
+export function ringRopes(root, map) {
+  if (!map.ropes) return;
+  const f = map.floors[0], cols = ['#E8177D', '#FFFFFF', '#3D8BFF'];
+  const side = (x0, z0, x1, z1) => cols.forEach((c, i) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), m = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, len, 8), M(c, 0.5));
+    m.position.set((x0 + x1) / 2, 22 + i * 18, (z0 + z1) / 2); m.rotation.z = Math.PI / 2; m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); m.castShadow = true; root.add(m);
+  });
+  const x0 = f.x + 8, x1 = f.x + f.w - 8, z0 = f.y + 8, z1 = f.y + f.h - 8;
+  side(x0, z0, x1, z0); side(x0, z1, x1, z1); side(x0, z0, x0, z1); side(x1, z0, x1, z1);
+}
+/* A skipping rope: a thick striped cord low over the floor, held at a hub. */
+export function ropeArm(arm, s) {
+  const tex = canvasTex(256, 16, (x, W, H) => { for (let i = 0; i < 16; i++) { x.fillStyle = i % 2 ? '#FFFFFF' : '#E8177D'; x.fillRect(i * W / 16, 0, W / 16, H); } });
+  tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(s.len / 60, 1);
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(s.w * 0.8, s.w * 0.8, s.len, 12), M('#FFFFFF', 0.6, { map: tex }));
+  cord.rotation.z = Math.PI / 2; cord.position.set(s.len / 2, 16, 0); arm.add(cord);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(s.w * 0.9, 12, 10), M('#FFC21A', 0.4)); tip.position.set(s.len, 14, 0); arm.add(tip);
+}
 export function updateWorld(w, map, snap, T, tfTimes, Dhakka) {
   const d = w.dyn;
+  if (d.stage) { const k = snap.sk ? snap.sk / 1000 : 1, ti = snap.ti || [0, 0]; d.stage.forEach(st => { if (st.f.shrink) st.g.scale.set(k, 1, k); st.g.rotation.x = ti[1] * 0.00028; st.g.rotation.z = -ti[0] * 0.00028; }); }
+  if (snap.so) d.sweepers.forEach((sw, i) => { sw.g.visible = snap.so[i] !== '0'; });
   d.sweepers.forEach((s, i) => { if (snap.sw) s.g.rotation.y = -(snap.sw[i] / 1000); });
   d.plats.forEach((p, i) => { const q = snap.pl ? { x: snap.pl[i][0], y: snap.pl[i][1] } : Dhakka.platPos(p.p, T); p.g.position.set(q.x, 0, q.y); });
   d.movers.forEach((m, i) => { const q = snap.mv ? { x: snap.mv[i][0], y: snap.mv[i][1] } : Dhakka.platPos(m.m, T); m.b.position.set(q.x + m.m.w / 2, 40, q.y + m.m.h / 2); });
