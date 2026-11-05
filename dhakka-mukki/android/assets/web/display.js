@@ -4,7 +4,7 @@
 (() => {
 const $ = s => document.querySelector(s);
 const A = window.DArt, D = window.Dhakka, S = window.DAudio;
-const W = 1600, H = 900, DELAY = 70, TAU = Math.PI * 2;
+const W = 1600, H = 900, DELAY = 50, TAU = Math.PI * 2; // 30 Hz snapshots, 1.5 frames of jitter buffer
 const canvas = $('#stage'), ctx = canvas.getContext('2d');
 const ss = { get(k) { try { return sessionStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { sessionStorage.setItem('dm.' + k, v); } catch (_) {} } };
 const ls = { get(k) { try { return localStorage.getItem('dm.' + k) || ''; } catch (_) { return ''; } }, set(k, v) { try { localStorage.setItem('dm.' + k, v); } catch (_) {} } };

@@ -262,7 +262,7 @@ function loadPov() {
   document.addEventListener('dm3d-ready', () => { if (!window.DRender3D || R3) return; R3 = window.DRender3D; app.mapId = ''; if (app.room) { app.mapId = app.room.map.id; R3.setMap(D.buildMap(app.room.map.id), D); } }, { once: false });
   import('/display3d.js').catch(() => { povLoading = false; });
 }
-const DELAY = 70;
+const DELAY = 50, MAXS = 330, ACC = 15;
 function lerpAng(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
 function sampleSnap(now) {
   const sn = app.snaps; if (!sn.length) return {};
@@ -281,6 +281,28 @@ function povOffset() {
   let top = 56; if (!live && scr.firstElementChild) top = Math.max(top, scr.firstElementChild.getBoundingClientRect().bottom);
   return Math.max(-0.2, Math.min(0.4, 0.5 - (top + bottom) / 2 / h));
 }
+/* Your own character does not wait for the round trip: it moves from your stick straight away, predicted with the
+   engine's own speed and acceleration from the newest host state, and eases onto the host's position as updates arrive. */
+const pred = { x: 0, y: 0, ok: false, at: 0 };
+const PREDICT = new URLSearchParams(location.search).get('predict') !== '0'; // ?predict=0 is for latency tests only
+function predictMe(out, now) {
+  const me = app.me, sn = app.snaps; if (!PREDICT || !me || !sn.length || !out.p) return out;
+  const L = sn[sn.length - 1], lp = (L.s.p || []).find(p => p[0] === me.color); if (!lp) { pred.ok = false; return out; }
+  const fl = lp[8], ph = app.room && app.room.phase;
+  const steer = ['lobby', 'play', 'finished'].includes(ph) && !(fl & (1 | 2 | 4 | 8 | 256)) && !lp[7];
+  const dt = Math.min(0.15, (now - L.at) / 1000 + 0.03), ix = steer ? app.inp.x : 0, iy = steer ? app.inp.y : 0;
+  let vx = lp[4], vy = lp[5], px, py;
+  if (steer) { const k = 1 - Math.exp(-ACC * dt), wx = vx + (ix * MAXS - vx) * k, wy = vy + (iy * MAXS - vy) * k; px = lp[1] + (vx + wx) / 2 * dt; py = lp[2] + (vy + wy) / 2 * dt; vx = wx; vy = wy; }
+  else { px = lp[1] + vx * Math.min(dt, 0.06); py = lp[2] + vy * Math.min(dt, 0.06); }
+  const rdt = Math.min(0.05, (now - (pred.at || now)) / 1000); pred.at = now;
+  if (!pred.ok || Math.hypot(px - pred.x, py - pred.y) > 140 || (fl & 2)) { pred.x = px; pred.y = py; pred.ok = true; }
+  else { const k = 1 - Math.exp(-28 * rdt); pred.x += (px - pred.x) * k; pred.y += (py - pred.y) * k; }
+  const face = steer && Math.hypot(ix, iy) > 0.15 ? Math.atan2(iy, ix) * 100 : lp[6];
+  out = Object.assign({}, out); // never write into the stored snapshot
+  const mine = lp.slice(); mine[1] = pred.x; mine[2] = pred.y; mine[4] = vx; mine[5] = vy; mine[6] = face;
+  out.p = out.p.map(p => p[0] === me.color ? mine : p);
+  return out;
+}
 const povEmotes = new Map(); let povLast = performance.now();
 function povFrame(now) {
   requestAnimationFrame(povFrame);
@@ -292,7 +314,7 @@ function povFrame(now) {
   const wide = live && innerWidth > innerHeight; if (!EMBED && document.documentElement.classList.contains('embed') !== wide) document.documentElement.classList.toggle('embed', wide);
   if (!live) { povLast = now; return; }
   const dt = Math.min(0.05, (now - povLast) / 1000); povLast = now;
-  R3.render({ cur: sampleSnap(now), room: app.room, dt, T: now / 1000, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D, emotes: povEmotes, now });
+  R3.render({ cur: predictMe(sampleSnap(now), now), room: app.room, dt, T: now / 1000, phaseAge: (now - app.phaseSeenAt) / 1000, Dhakka: D, emotes: povEmotes, now });
 }
 requestAnimationFrame(povFrame);
 
@@ -323,10 +345,10 @@ press($('#b-fire'), () => { app.inp.f++; pushInput(true); buzz(20); });
 function pushInput(force) {
   const now = performance.now(), i = app.inp, key = [i.x.toFixed(2), i.y.toFixed(2), i.j, i.d, i.f].join();
   if (!force && key === app.sentKey && now - app.sentAt < 250) return;
-  if (!force && now - app.sentAt < 30) return;
+  if (!force && now - app.sentAt < 15) return;
   if (send({ t: 'in', x: +i.x.toFixed(3), y: +i.y.toFixed(3), j: i.j, d: i.d, f: i.f })) { app.sentAt = now; app.sentKey = key; }
 }
-setInterval(() => { if (!$('#pad').hidden) pushInput(false); }, 33);
+setInterval(() => { if (!$('#pad').hidden) pushInput(false); }, 16);
 // keyboard for laptops: WASD or arrows, Space jump, Shift or K dhakka, 1 2 3 traps or emotes
 const keys = new Set();
 function keyVec() { const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0), y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0), l = Math.hypot(x, y) || 1; if (stickId === null) { app.inp.x = x / l; app.inp.y = y / l; pushInput(true); } }

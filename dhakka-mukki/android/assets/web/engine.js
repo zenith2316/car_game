@@ -6,7 +6,7 @@
 
 /* ---------- constants ---------- */
 const W = 1600, H = 900, STEP = 1 / 60, R = 17; // body radius: small against the maps so paths feel roomy
-const MAXS = 330, ACC = 11, G = 1700, JUMPV = 560, DASHV = 440, DASH_T = 0.22, DASH_CD = 1.1;
+const MAXS = 330, ACC = 15, G = 1700, JUMPV = 560, DASHV = 440, DASH_T = 0.22, DASH_CD = 1.1;
 const KNOCK = 560, STUN_HIT = 0.6, SEATS = 10, BLAME_WINDOW = 3.5;
 /* brawl health and fainting, explosives */
 const HP = 100, PUNCH_DMG = 10, FAINT_T = 3.6, FAINT_KNOCK = 2.4, BLAST_R = 160, SHOT_V = 820, AMMO = 3;
@@ -655,7 +655,7 @@ class Engine {
       else if (ground && b.dash <= 0) { const f = Math.exp(-(b.faint > 0 ? 1.3 : b.slip > 0 ? 0.6 : 4.6) * dt); b.vx *= f; b.vy *= f; }
       if (ground && map.tilt) { b.vx += ms.tilt.x * dt; b.vy += ms.tilt.y * dt; }
       if (p.inp.fire) { p.inp.fire = false; if (live && b.ammo > 0 && b.fireCd <= 0 && b.faint <= 0) this.fire(p); }
-      if ((ix || iy) && b.stun <= 0) { const a = Math.atan2(iy, ix); let d = a - b.face; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; b.face += d * Math.min(1, 14 * dt); }
+      if ((ix || iy) && b.stun <= 0) { const a = Math.atan2(iy, ix); let d = a - b.face; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; b.face += d * Math.min(1, 20 * dt); }
       if (p.inp.jump) { p.inp.jump = false; if (live && ground && b.stun <= 0) { b.vz = JUMPV; this.fx.push(['j', b.x | 0, b.y | 0, p.color]); } }
       if (p.inp.dash) { p.inp.dash = false; if (live && b.dashCd <= 0 && b.stun <= 0) { const brawl = map.kind === 'brawl', copDash = map.kind === 'tag' && this.police.has(p.id); b.dash = brawl ? 0.14 : DASH_T; b.dashCd = brawl ? 0.5 : copDash ? 1.9 : DASH_CD; b.vx += Math.cos(b.face) * DASHV * (brawl ? 0.6 : 1); b.vy += Math.sin(b.face) * DASHV * (brawl ? 0.6 : 1); const s = hyp(b.vx, b.vy); if (s > 720) { b.vx *= 720 / s; b.vy *= 720 / s; } if (ground && !brawl) b.vz = 160; this.fx.push(['d', b.x | 0, b.y | 0, p.color]); if (brawl) this.punch(p); } }
       if (ground) {
@@ -1004,6 +1004,9 @@ class Engine {
     const tickMe = this.meTimer <= 0; if (tickMe) this.meTimer = this.phase === 'play' ? 0.5 : 2;
     for (const p of this.players) if (p.cid && (p.meDirty || tickMe)) { p.meDirty = false; this.sendMe(p); }
     // phones render their own camera too, so everyone gets the world snapshot
+    this.snapAge = (this.snapAge || 0) + dt;
+    if (this.snapAge < 0.03 && this.fx.length < 40) return;
+    this.snapAge = 0;
     if (this.physicsOn() || ['intro', 'countdown', 'roundEnd'].includes(this.phase)) this.cast('*', this.snapshot());
     else if (this.fx.length) this.cast('*', { t: 's', fx: this.fx.splice(0) });
     this.fx = [];

@@ -73,7 +73,9 @@ public class HostingService extends Service implements GameServer.Host {
             long now = SystemClock.uptimeMillis();
             if (inFlight && now - flightStart > 1500) inFlight = false; // renderer hiccup: never stall the room
             if (engineReady && engine != null && !inFlight) step(now);
-            main.postDelayed(this, 33);
+            // 60 Hz input processing; schedule against the clock so a busy frame does not push every later tick back
+            long next = 16 - (SystemClock.uptimeMillis() - now);
+            main.postDelayed(this, Math.max(2, next));
         }
     };
 

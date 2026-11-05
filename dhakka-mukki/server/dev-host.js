@@ -78,7 +78,7 @@ setInterval(() => {
     if (to === '*' || to === 'D' || to === 'P') { for (const c of sockets.values()) if (to === '*' || c.kind === to) if (c.sock.writableLength < 262144) c.sock.write(f); }
     else { const c = sockets.get(to); if (c) c.sock.write(f); }
   }
-}, 33);
+}, 16);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Dhakka Mukki dev host on port ' + PORT);
