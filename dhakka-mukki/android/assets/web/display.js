@@ -46,7 +46,7 @@ function connect() {
 function send(o) { if (app.ws && app.ws.readyState === 1) app.ws.send(JSON.stringify(o)); }
 function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
 function onMessage(m) {
-  if (m.t === 'welcome') { app.host = !!m.host; if (!m.host && hostToken) { hostToken = ''; ss.set('host', ''); } renderHost(true); if (app.host && ss.get('playing') === '1') playHere(); }
+  if (m.t === 'welcome') { app.host = !!m.host; if (!m.host && hostToken) { hostToken = ''; ss.set('host', ''); } renderHost(true); }
   else if (m.t === 'room') onRoom(m);
   else if (m.t === 's') onSnap(m);
   else if (m.t === 'err') toast(m.msg || 'That did not work.');
@@ -426,11 +426,13 @@ async function loadInvite() {
    Either a controller is laid over the arena on this screen (same page, a transparent frame that carries the host
    token, so host controls move into it), or this device becomes the host's controller while a TV shows the arena. */
 function playMenu() {
-  const url = app.invite && app.invite.urls && app.invite.urls[0];
+  // The host plays from their own private view, like everyone else. Playing on the shared screen would show a
+  // Chupa Rustam host's traps to the room, so that option is gone.
+  const url = app.invite && app.invite.urls && app.invite.urls[0], nat = !!window.DhakkaHost;
   let m = $('#playmenu'); if (!m) { m = document.createElement('div'); m.id = 'playmenu'; m.className = 'playmenu'; document.body.appendChild(m); }
   m.innerHTML = `<section class="pm-card pop" role="dialog" aria-modal="true" aria-labelledby="pm-h"><h2 id="pm-h" class="title">Host, play too!</h2>
-    <button class="pm-opt" data-act="play-here"><b>Play on this screen</b><span>A joystick and buttons appear over the arena. Your role stays hidden: press and hold to peek.</span></button>
-    <button class="pm-opt" data-act="play-ctrl"><b>Use this device as my controller</b><span>Show the arena on a TV or laptop first: open ${url ? '<em>' + esc(url) + 'display</em>' : 'the display address from Connect players'} there. Host controls come with you.</span></button>
+    ${nat ? `<button class="pm-opt" data-act="play-cast"><b>Cast this phone to the TV</b><span>Use Smart View, Cast or Screen mirroring. The arena moves to the TV by itself and this phone becomes your own private view and controller, so your role stays secret.</span></button>` : ''}
+    <button class="pm-opt" data-act="play-ctrl"><b>${nat ? 'TV has a browser? Switch to my view' : 'Use this device as my controller'}</b><span>First open ${url ? '<em>' + esc(url) + 'display</em>' : 'the display address from Connect players'} on the TV or a laptop. Then this device becomes your private view with the host controls.</span></button>
     <button class="btn ghost" data-act="play-cancel">Not now</button></section>`;
   m.hidden = false;
 }
@@ -449,12 +451,6 @@ function gamesMenu(open) {
   m.hidden = false;
 }
 function closeMenu() { const m = $('#playmenu'); if (m) m.hidden = true; }
-function playHere() {
-  closeMenu(); if (!hostToken || $('#playframe')) return;
-  const f = document.createElement('iframe'); f.id = 'playframe'; f.className = 'playframe'; f.title = 'Your controller';
-  f.src = '/?embed=1#host=' + encodeURIComponent(hostToken);
-  document.body.appendChild(f); document.body.classList.add('hostplays'); ss.set('playing', '1');
-}
 function stopPlaying() { const f = $('#playframe'); if (f) f.remove(); document.body.classList.remove('hostplays'); ss.set('playing', ''); app.overlayKey = ''; app.hostKey = ''; renderHost(true); }
 addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.dm === 'close') stopPlaying(); });
 
@@ -465,7 +461,7 @@ document.addEventListener('click', e => {
   if (a === 'native-connect') { try { window.DhakkaHost.connect(); } catch (_) {} return; }
   if (a === 'native-stop') { try { window.DhakkaHost.stop(); } catch (_) {} return; }
   if (a === 'playtoo') { playMenu(); return; }
-  if (a === 'play-here') { playHere(); return; }
+  if (a === 'play-cast') { closeMenu(); try { window.DhakkaHost.openCast(); } catch (_) {} return; }
   if (a === 'play-ctrl') { closeMenu(); location.href = '/#host=' + encodeURIComponent(hostToken); return; }
   if (a === 'play-cancel') { closeMenu(); return; }
   if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' || k === 'powerups' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); }

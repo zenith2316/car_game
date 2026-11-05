@@ -2,6 +2,9 @@ package com.dhakkamukki.local;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Presentation;
+import android.hardware.display.DisplayManager;
+import android.view.Display;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -46,7 +49,11 @@ public class MainActivity extends Activity {
 
     private LinearLayout layout, bar;
     private TextView status;
-    private WebView display;
+    private WebView display, tvView;
+    private Presentation tv;
+    private DisplayManager displays;
+    private String token;
+    private boolean tvOn, started;
     private HostingService hosting;
     private boolean bound, closed;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -124,7 +131,68 @@ public class MainActivity extends Activity {
     final class HostBridge {
         @JavascriptInterface public void connect() { main.post(new Runnable() { @Override public void run() { if (!closed) showInvite(); } }); }
         @JavascriptInterface public void stop() { main.post(new Runnable() { @Override public void run() { if (!closed) confirmStop(); } }); }
+        @JavascriptInterface public boolean tv() { return tvOn; }
+        @JavascriptInterface public void openCast() { main.post(new Runnable() { @Override public void run() { openCastSettings(); } }); }
     }
+
+    /* ---------- TV mode ----------
+       When the phone is cast or mirrored to a TV (or plugged into one), Android offers that screen as a presentation
+       display. The shared arena goes there on its own, and this phone switches to the host's private view and
+       controller, so a Chupa Rustam host's role and traps never show on the TV. */
+    private final DisplayManager.DisplayListener tvListener = new DisplayManager.DisplayListener() {
+        @Override public void onDisplayAdded(int id) { checkTv(); }
+        @Override public void onDisplayRemoved(int id) { checkTv(); }
+        @Override public void onDisplayChanged(int id) { checkTv(); }
+    };
+    private void checkTv() {
+        if (closed || token == null || displays == null) return;
+        Display[] ds = displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+        if (ds.length > 0 && tv == null && started) showTv(ds[0]);
+        else if (ds.length == 0 && (tv != null || tvOn)) hideTv(true);
+    }
+    private void showTv(Display d) {
+        try {
+            final Presentation p = new Presentation(this, d);
+            tvView = localWebView(p.getContext());
+            p.setContentView(tvView);
+            p.setOnDismissListener(new DialogInterface.OnDismissListener() { @Override public void onDismiss(DialogInterface di) { if (tv == p) { tv = null; if (tvView != null) { tvView.destroy(); tvView = null; } } } });
+            p.show();
+            tv = p;
+            tvView.loadUrl(base() + "/display?tv=1");
+            if (!tvOn) { tvOn = true; display.loadUrl(base() + "/#host=" + token); Toast.makeText(this, "Arena is on the TV. This phone is now your private view.", Toast.LENGTH_LONG).show(); }
+        } catch (Exception e) {
+            tv = null; if (tvView != null) { tvView.destroy(); tvView = null; }
+        }
+    }
+    private void hideTv(boolean restore) {
+        Presentation p = tv; tv = null;
+        if (p != null) p.dismiss();
+        if (tvView != null) { tvView.destroy(); tvView = null; }
+        if (restore && tvOn && display != null) { tvOn = false; display.loadUrl(base() + "/display#host=" + token); }
+    }
+    private void openCastSettings() {
+        try { startActivity(new Intent(android.provider.Settings.ACTION_CAST_SETTINGS)); }
+        catch (Exception e) { try { startActivity(new Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS)); } catch (Exception ignored) { } }
+    }
+    private static String base() { return "http://127.0.0.1:" + HostingService.PORT; }
+    private WebView localWebView(Context ctx) {
+        WebView w = new WebView(ctx);
+        WebSettings ws = w.getSettings();
+        ws.setJavaScriptEnabled(true);
+        ws.setDomStorageEnabled(true);
+        ws.setMediaPlaybackRequiresUserGesture(false);
+        ws.setAllowFileAccess(false);
+        ws.setSupportMultipleWindows(false);
+        ws.setUserAgentString(ws.getUserAgentString() + " DhakkaNative/1");
+        w.setBackgroundColor(NIGHT);
+        w.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return !LocalOrigin.allows(r.getUrl().toString(), HostingService.PORT); }
+        });
+        w.setWebChromeClient(new android.webkit.WebChromeClient());
+        return w;
+    }
+    @Override protected void onStart() { super.onStart(); started = true; checkTv(); }
+    @Override protected void onStop() { started = false; hideTv(false); super.onStop(); }
 
     private Button barButton(String text, boolean primary, View.OnClickListener l) {
         Button b = new Button(this);
@@ -167,25 +235,17 @@ public class MainActivity extends Activity {
     }
 
     private void showDisplay(String token) {
+        this.token = token;
         status.setVisibility(View.GONE);
-        display = new WebView(this);
-        WebSettings ws = display.getSettings();
-        ws.setJavaScriptEnabled(true);
-        ws.setDomStorageEnabled(true);
-        ws.setMediaPlaybackRequiresUserGesture(false);
-        ws.setAllowFileAccess(false);
-        ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString() + " DhakkaNative/1");
-        display.setBackgroundColor(NIGHT);
-        display.setWebViewClient(new WebViewClient() {
-            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return !LocalOrigin.allows(r.getUrl().toString(), HostingService.PORT); }
-        });
-        display.setWebChromeClient(new android.webkit.WebChromeClient());
+        display = localWebView(this);
         display.addJavascriptInterface(new HostBridge(), "DhakkaHost");
         bar.setVisibility(View.GONE);
         immersive();
         layout.addView(display, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        display.loadUrl("http://127.0.0.1:" + HostingService.PORT + "/display#host=" + token);
+        display.loadUrl(base() + "/display#host=" + token);
+        displays = getSystemService(DisplayManager.class);
+        displays.registerDisplayListener(tvListener, main);
+        checkTv();
     }
 
     private void confirmStop() {
@@ -199,6 +259,8 @@ public class MainActivity extends Activity {
         closed = true;
         if (hosting != null) hosting.listener = null;
         if (bound) { unbindService(connection); bound = false; }
+        if (displays != null) displays.unregisterDisplayListener(tvListener);
+        hideTv(false);
         if (display != null) display.destroy();
         super.onDestroy();
     }

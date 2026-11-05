@@ -196,6 +196,7 @@ document.addEventListener('click', e => {
 /* ---------- host controls ---------- */
 // the Android host app exposes Connect players and Stop to its own pages (the arena, and this frame inside it)
 function nativeHost() { try { return window.DhakkaHost || (parent !== window && parent.DhakkaHost) || null; } catch (_) { return null; } }
+function onTv() { try { const n = nativeHost(); return !!(n && n.tv && n.tv()); } catch (_) { return false; } }
 function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
 function hostAct(a, b) {
   if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostKey = ''; renderHost(); return; }
@@ -230,7 +231,7 @@ function renderHost() {
        ${r.catalog ? `<p class="hc-label">Games this match</p><div class="seg games">${r.catalog.map(g => `<button data-act="h-game" data-id="${g.id}" aria-pressed="${s.games.includes(g.id)}">${esc(g.name)}</button>`).join('')}</div>` : ''}`
     : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
     + (nativeHost() ? '<div class="row hc-native"><button class="ghost small" data-act="h-connect">Hotspot and QR</button><button class="ghost small" data-act="h-stophost">Stop hosting</button></div>' : '')
-    + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
+    + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : onTv() ? 'The arena is on the TV. Stop casting to bring it back here.' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
 }
 
 /* One persistent preview canvas (one WebGL context) is moved into whichever screen has a slot for it. */

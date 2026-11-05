@@ -26,14 +26,14 @@ A local multiplayer party game for 3 to 10 players, built on the same foundation
 
 **Scoring:** a race qualifier gets +3, with +2 for 1st and +1 for 2nd. Surviving gets +3. In the final, hold time ranks +6 / +4 / +2, and anyone else who held it gets +1. Spotting a saboteur in the vote is +2, and blaming an innocent is -1. A saboteur who isn't ejected gets +3 plus 1 per fall they caused in the last 3.5 seconds before it (capped at 5). A caught saboteur gets nothing that round.
 
-## The host plays too (version 1.3)
+## The host plays too (version 1.5.1)
 
-Tap **Play too** on the host screen (in the lobby settings row, or the Host bar during a match) and pick a mode:
+The host plays from their own private view, like every other player, so a Chupa Rustam host's role and traps never show on the shared screen. (The 1.3 option to play over the arena on the host screen is gone: when that screen is cast to a TV, the whole room could see the host's traps.)
 
-- **Play on this screen:** a joystick, Jump and Dhakka buttons and your emotes or traps appear over the arena. Menus such as joining, your role and voting open in a side card. Your role stays hidden until you press and hold, the same as on a phone, so it works on the honour system. Host controls (rounds, Chupa Rustam, talk time, bots, start, pause, skip, end) move into a **Host** button in the corner. **Stop playing on this screen** gives the arena back.
-- **Use this device as my controller:** first open the display address on a TV or laptop, then this device becomes a normal phone controller with the same **Host** button. **Show the arena on this device** switches it back.
+- **Cast to a TV (Android app):** cast or mirror the phone with Smart View, Cast or Screen mirroring (**Host, play too!** opens the cast settings). When Android offers the TV as a second screen, the app puts the shared arena on the TV and turns the phone into the host's private view, with the Host panel for settings, bots, start, pause, skip and end. Stop casting and the arena comes back to the phone.
+- **TV or laptop with a browser:** open the display address there, then pick **Switch to my view** on the host phone.
 
-Over the arena the controller stays out of the way: a small "Hold to see your role" pill, a compact vote list, and nothing during reveal and scores, which the arena already shows. On short screens (a phone in landscape) the arena's intro and Panchayat cards shrink to the essentials too.
+The engine gives host rights to any connection that holds the host token, display or player.
 
 ## Screen and camera (version 1.4)
 
