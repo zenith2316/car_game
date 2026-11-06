@@ -238,7 +238,7 @@ function start() {
       const k = ease(Math.min(1, age / 5.5));
       let sx = overview.cx, sz = overview.cz; if (map && map.kind === 'race' && map.spawns) { sx = map.spawns.reduce((s, p) => s + p[0], 0) / map.spawns.length; sz = map.spawns.reduce((s, p) => s + p[1], 0) / map.spawns.length; }
       tx = sx + (overview.cx - sx) * k; tz = sz + (overview.cz - sz) * k; d = overview.d * (0.42 + 0.58 * k); yaw = -0.9 * (1 - k); el = 0.5 + (EL_OVER - 0.5) * k;
-    } else if (['countdown', 'play', 'lobby'].includes(ph) && players.length) {
+    } else if (['countdown', 'play', 'lobby', 'choose'].includes(ph) && players.length) {
       // follow the pack up close; a race looks a little ahead along the course
       const f = follow(players, 340, 260); tx = f.tx; tz = f.tz; d = f.d; el = EL_PLAY; yaw = Math.sin(T * 0.12) * 0.04;
       if (map && map.kind === 'race') tx += 70;

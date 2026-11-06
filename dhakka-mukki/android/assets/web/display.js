@@ -60,7 +60,7 @@ function onRoom(r) {
 }
 function onPhase(ph, was) {
   if (was && ph !== 'play' && !(was === 'intro' && ph === 'countdown')) wipe();
-  S.setMood(ph === 'countdown' || ph === 'roundEnd' ? 'play' : ph, app.room && app.room.map.kind);
+  S.setMood(ph === 'countdown' || ph === 'roundEnd' ? 'play' : ph === 'choose' ? 'lobby' : ph, app.room && app.room.map.kind);
   if (ph !== 'play' && ph !== 'countdown') S.play('wipe', 0.3);
   if (ph === 'intro') S.play('roll');
   if (ph === 'reveal') { S.play('roll'); setTimeout(() => S.play('gong'), 3300); }
@@ -321,7 +321,7 @@ function playerChips(r) {
 function renderOverlay() {
   const r = app.room, ov = $('#overlay'); if (!r) return;
   const res = r.result;
-  const key = [r.phase, r.paused, r.round, app.host, r.players.map(p => [p.id, p.name, p.color, p.look, p.online, p.ready, r.phase === 'panchayat' ? p.voted : '', p.score].join(',')).join('|'), JSON.stringify(res && [res.gains, res.saboteurs, res.ejected]), app.invite && app.invite.urls.join(), r.settings.rounds, r.settings.saboteurs, r.settings.talk].join('#');
+  const key = [r.phase, r.paused, r.round, app.host, r.players.map(p => [p.id, p.name, p.color, p.look, p.online, p.ready, r.phase === 'panchayat' ? p.voted : '', p.score, p.view].join(',')).join('|'), JSON.stringify(res && [res.gains, res.saboteurs, res.ejected]), app.invite && app.invite.urls.join(), r.settings.rounds, r.settings.saboteurs, r.settings.talk].join('#');
   if (key === app.overlayKey) return; app.overlayKey = key;
   let html = '';
   const ps = r.players.filter(p => !p.waiting);
@@ -348,6 +348,15 @@ function renderOverlay() {
             <button class="btn go" data-act="start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>
           </div>` : `<p class="waithost">Waiting for the host to start. ${r.players.length}/10 in.</p>`}
         </footer></section>`;
+      break;
+    }
+    case 'choose': {
+      const ps = r.players.filter(p => !p.waiting);
+      html = `<section class="card choose pop"><p class="kicker">Match starting</p><h1 class="title">How do you want to play?</h1>
+        <div class="choose-opts"><div><i>📱</i><b>Play on phone</b><span>Your own camera follows you on your phone. Your role and traps stay private.</span></div>
+        <div><i>🎮</i><b>Use phone as controller</b><span>Just the joystick and buttons on your phone. Watch the game on this screen.</span></div></div>
+        <p class="choose-go">Pick on your phone. Round 1 in <b data-left>${Math.ceil(r.left)}</b></p>
+        <ul class="choose-who">${ps.map(p => `<li style="--pc:${A.COLORS[p.color].fill}">${av(p, 34)}<span>${esc(p.name)}</span><em>${p.bot ? 'bot' : p.view === 'pad' ? '🎮' : p.view === 'phone' ? '📱' : '…'}</em></li>`).join('')}</ul></section>`;
       break;
     }
     case 'intro': {

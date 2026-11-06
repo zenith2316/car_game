@@ -12,7 +12,7 @@ const KNOCK = 560, STUN_HIT = 0.6, SEATS = 10, BLAME_WINDOW = 3.5;
 const HP = 100, PUNCH_DMG = 10, FAINT_T = 3.6, FAINT_KNOCK = 2.4, BLAST_R = 160, SHOT_V = 820, AMMO = 3;
 const NAMES = ['Bunty', 'Pinky', 'Golu', 'Chintu', 'Sweety', 'Pappu', 'Munna', 'Dolly', 'Raju', 'Tinku', 'Babli', 'Lalli'];
 const EMOTES = ['Oye!', 'Arre!', 'Chalo!'];
-const PHASE_SECS = { intro: 6, countdown: 3, roundEnd: 4.5, reveal: 9, scores: 7 };
+const PHASE_SECS = { choose: 7, intro: 6, countdown: 3, roundEnd: 4.5, reveal: 9, scores: 7 };
 
 /* ---------- utils ---------- */
 function randomBytes(n) {
@@ -324,6 +324,7 @@ class Engine {
         return;
       }
       case 'trap': if (!p) return; this.useTrap(p, m.k); return;
+      case 'view': if (!p) return; p.view = m.phone === false ? 'pad' : 'phone'; this.roomDirty = true; return;
       case 'emote': if (!p || !(Number.isInteger(m.k) && m.k >= 0 && m.k < 3)) return; if (p.b.emoteT <= 0) { p.b.emoteT = 1.6; this.fx.push(['e', p.color, m.k]); } return;
       case 'vote': {
         if (!p) fail('seat', 'Join first.');
@@ -421,7 +422,9 @@ class Engine {
     }
     if (finale && pool[0] !== 'king') list.push('king');
     this.playlist = list; this.round = 0; this.history = []; this.lastSabo = []; this.paused = false;
-    this.nextRound();
+    // seven seconds for everyone to pick Play on phone or Use phone as controller, still running around the aangan
+    this.setPhase('choose', PHASE_SECS.choose);
+    this.players.forEach(p => this.sendMe(p));
   }
   nextRound() {
     this.round++;
@@ -446,6 +449,7 @@ class Engine {
   setPhase(ph, secs) { this.phase = ph; this.phaseLeft = secs; this.roomDirty = true; this.players.forEach(p => { p.meDirty = true; }); }
   advance() {
     switch (this.phase) {
+      case 'choose': this.nextRound(); break;
       case 'intro': this.setPhase('countdown', PHASE_SECS.countdown); break;
       case 'countdown': this.setPhase('play', this.map.duration); this.fx.push(['go']); break;
       case 'play': this.endRound(); break;
@@ -566,7 +570,7 @@ class Engine {
     this.flush(dt);
     return this.drain();
   }
-  physicsOn() { return ['lobby', 'play', 'roundEnd', 'finished'].includes(this.phase); }
+  physicsOn() { return ['lobby', 'choose', 'play', 'roundEnd', 'finished'].includes(this.phase); }
   fixed(dt) {
     this.t += dt;
     if (this.physicsOn()) this.simulate(dt);
@@ -601,7 +605,7 @@ class Engine {
   }
 
   simulate(dt) {
-    const map = this.map, ms = this.ms, playing = this.phase === 'play' || this.phase === 'lobby' || this.phase === 'finished';
+    const map = this.map, ms = this.ms, playing = ['play', 'lobby', 'choose', 'finished'].includes(this.phase);
     ms.t += dt;
     const ultaK = ms.ulta > 0 ? (map.sweepers.some(q => q.rope) ? -1 : -1.7) : 1; if (ms.ulta > 0) { ms.ulta -= dt; if (ms.ulta <= 0) ms.ultaBy = null; }
     const el = this.phase === 'play' ? map.duration - this.phaseLeft : 99, spin = Math.min(1, el / 2.5), inPlay = this.phase === 'play';
@@ -1044,7 +1048,7 @@ class Engine {
       settings: Object.assign({}, this.settings, { games: this.settings.games.slice() }),
       catalog: ['lobby', 'finished'].includes(phase) ? GAMES.map(id => { const m = MAPS[id](); return { id, name: m.name, kind: m.kind }; }) : null, quota: this.quota || 0, saboteurCount: (this.saboteurs || []).length,
       police: this.police ? [...this.police] : [],
-      players: this.players.map(p => ({ id: p.id, name: p.name, color: p.color, look: p.look, score: p.score, last: p.last || 0, ready: p.ready, bot: p.bot, online: p.online, waiting: p.waiting, st: p.b ? p.b.state : 'run', place: p.b ? p.b.place : 0, voted: !!(this.votes && this.votes[p.id]), hold: p.b ? +p.b.hold.toFixed(1) : 0 })),
+      players: this.players.map(p => ({ id: p.id, name: p.name, color: p.color, look: p.look, score: p.score, last: p.last || 0, ready: p.ready, bot: p.bot, online: p.online, waiting: p.waiting, st: p.b ? p.b.state : 'run', place: p.b ? p.b.place : 0, voted: !!(this.votes && this.votes[p.id]), view: p.view || null, hold: p.b ? +p.b.hold.toFixed(1) : 0 })),
       result: showResult ? {
         qualified: r.qualified, gains: (phase === 'scores' || revealed) ? r.gains : null, notes: (phase === 'scores' || revealed) ? r.notes : null,
         saboteurs: revealed ? r.saboteurs : null, tally: revealed ? r.tally : null, skip: revealed ? r.skip : null, ejected: revealed ? r.ejected : null, caught: revealed ? r.caught : null, votes: revealed ? r.votes : null,
@@ -1057,7 +1061,7 @@ class Engine {
   sendMe(p) {
     if (!p.cid) { p.meDirty = false; return; }
     const sab = this.saboteurs && this.saboteurs.includes(p.id) && !['lobby', 'finished'].includes(this.phase);
-    const idle = ['lobby', 'finished'].includes(this.phase) || p.waiting, kind = this.map.kind;
+    const idle = ['lobby', 'choose', 'finished'].includes(this.phase) || p.waiting, kind = this.map.kind;
     const role = idle ? null : kind === 'crown' ? 'king' : kind === 'tag' ? (this.police.has(p.id) ? 'police' : 'chor') : kind === 'brawl' ? 'boxer' : sab ? 'saboteur' : 'racer';
     const me = {
       t: 'me', id: p.id, name: p.name, color: p.color, look: p.look, ready: p.ready, score: p.score, last: p.last || 0, waiting: p.waiting, phase: this.phase,

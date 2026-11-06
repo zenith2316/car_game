@@ -18,7 +18,7 @@ const app = {
   pick: { name: ls.get('name'), color: Number(ls.get('color') || -1), look: Number(ls.get('look') || 0) }, picking: false, joining: false,
   inp: { x: 0, y: 0, j: 0, d: 0, f: 0 }, snaps: [], mapId: '', povAt: 0, phaseSeenAt: performance.now(), sentAt: 0, sentKey: '', avatars: new Map(), role: null
 };
-const PAD_PHASES = ['lobby', 'countdown', 'play', 'roundEnd', 'finished'];
+const PAD_PHASES = ['lobby', 'countdown', 'play', 'roundEnd', 'finished']; // the 7-second pick shows only the choice
 
 function avatar(color, look, size = 64) {
   const key = color + ':' + look + ':' + size; if (app.avatars.has(key)) return app.avatars.get(key);
@@ -43,12 +43,12 @@ function onMessage(m) {
   if (m.t === 'welcome') {
     app.id = m.id; app.joining = false;
     app.host = !!m.host; if (!m.host && hostToken) { hostToken = ''; ss.set('host', ''); }
-    if (m.id) { app.token = m.token; ls.set('player', m.token); }
+    if (m.id) { app.token = m.token; ls.set('player', m.token); send({ t: 'view', phone: povWanted() }); }
     else { app.token = ''; ls.set('player', ''); app.me = null; }
     render();
   } else if (m.t === 'room') {
     if (!app.room || app.room.phase !== m.phase) app.phaseSeenAt = performance.now();
-    app.room = m; if (R3 && D && m.map.id !== app.mapId) { app.mapId = m.map.id; app.snaps = []; R3.setMap(D.buildMap(m.map.id), D); }
+    app.room = m; app.roomAt = performance.now(); if (R3 && D && m.map.id !== app.mapId) { app.mapId = m.map.id; app.snaps = []; R3.setMap(D.buildMap(m.map.id), D); }
     render();
   } else if (m.t === 's') {
     if (m.p) { app.snaps.push({ at: performance.now(), s: m }); while (app.snaps.length > 10) app.snaps.shift(); }
@@ -83,7 +83,7 @@ function render() {
   else {
     const ph = me.waiting ? 'waiting' : me.phase;
     screen = SCREENS[ph] || SCREENS.wait;
-    key = ph + ':' + app.host + ':' + povWanted() + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
+    key = ph + ':' + app.host + ':' + povWanted() + ':' + (r.settings.games || []).length + ':' + [me.role, me.st, me.place, me.vote, me.ready, me.score, me.last, me.rank, r.round, ph === 'panchayat' ? (me.vote ? r.players.map(p => p.id + p.voted).join() : r.players.filter(p => !p.waiting).map(p => p.id).join()) : '', ph === 'lobby' ? r.players.length : '', ph === 'reveal' || ph === 'scores' ? JSON.stringify(r.result && r.result.gains) : ''].join('|');
   }
   const showPad = !!me && !app.picking && !me.waiting && PAD_PHASES.includes(me.phase);
   document.body.classList.toggle('playing', showPad);
@@ -128,8 +128,12 @@ const roleCard = me => {
 };
 const SCREENS = {
   lobby: () => { const me = app.me, r = app.room; return `<section class="lobby-top"><div class="who"><canvas class="preview small" data-preview="me" aria-hidden="true"></canvas><img class="fallback" src="${avatar(me.color, me.look, 72)}" width="72" height="72" alt=""><div><h1>${esc(me.name)}</h1><p>${r.players.length}/10 in the mela. ${app.host ? 'You are the host. Add bots or change rounds under Host.' : 'The host starts the match.'}</p></div></div>
-    <div class="row">${app.host ? `<button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button>` : `<button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button>`}<button class="ghost" data-act="pick">Change look</button>${!EMBED && glOk ? `<button class="ghost small" data-act="pov" aria-pressed="${povWanted()}">3D view ${povWanted() ? 'on' : 'off'}</button>` : ''}<button class="ghost small" data-act="leave">Leave</button></div></section>`; },
+    <div class="row">${app.host ? `<button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button><button class="ghost" data-act="h-games">🎲 Games · ${(r.settings.games || []).length}</button>` : `<button class="cta ${me.ready ? 'on' : ''}" data-act="ready" aria-pressed="${me.ready}">${me.ready ? 'Ready ✓' : 'I’m ready'}</button>`}<button class="ghost" data-act="pick">Change look</button>${!EMBED && glOk ? `<button class="ghost small" data-act="pov" aria-pressed="${povWanted()}">${povWanted() ? '📱 Play on phone' : '🎮 Phone as controller'}</button>` : ''}<button class="ghost small" data-act="leave">Leave</button></div></section>`; },
   intro: () => { const me = app.me; return `<section class="intro-phone"><p class="kicker">Round ${app.room.round} · ${esc(app.room.map.name)}</p><button class="reveal-btn" data-hold="role" type="button"><span>Press and hold to see your role</span><small>Hide your screen from your neighbours</small></button><div id="role-slot" hidden>${roleCard(me)}</div></section>`; },
+  choose: () => { const on = povWanted(); return `<section class="card choose-phone"><p class="kicker">Match starting</p><h1>How do you want to play?</h1>
+    <button class="pick ${on ? 'on' : ''}" data-act="view-phone" aria-pressed="${on}"><i>📱</i><b>Play on phone</b><span>Your own camera follows you. Your role and traps stay private.</span></button>
+    <button class="pick ${!on ? 'on' : ''}" data-act="view-pad" aria-pressed="${!on}"><i>🎮</i><b>Use phone as controller</b><span>Just the joystick and buttons. Watch the big screen.</span></button>
+    <p class="sub">Round 1 in <b data-left>7</b>. You can change this in the lobby too.</p></section>`; },
   countdown: () => '',
   play: () => '',
   roundEnd: () => '',
@@ -189,9 +193,19 @@ document.addEventListener('click', e => {
   else if (a === 'pick') { app.picking = true; app.pick.color = app.me.color; app.pick.look = app.me.look; render(); }
   else if (a === 'cancelpick') { app.picking = false; app.screenKey = ''; render(); }
   else if (a === 'savelook') { send({ t: 'look', color: app.pick.color, look: app.pick.look }); ls.set('color', app.pick.color); ls.set('look', app.pick.look); app.picking = false; app.screenKey = ''; render(); }
-  else if (a === 'pov') { ls.set('pov', povWanted() ? 'off' : 'on'); app.screenKey = ''; if (povWanted()) loadPov(); render(); }
+  else if (a === 'pov') setView(!povWanted());
+  else if (a === 'view-phone') setView(true);
+  else if (a === 'view-pad') setView(false);
   else if (a === 'leave') { if (confirm('Leave the mela? Your spot opens for someone else.')) { send({ t: 'leave' }); } }
 });
+
+function setView(phone) {
+  if (phone && !glOk) { toast('This phone cannot show the 3D game, so it stays a controller.'); phone = false; }
+  ls.set('pov', phone ? 'on' : 'off'); send({ t: 'view', phone }); buzz(15);
+  if (phone) loadPov(); app.screenKey = ''; render();
+}
+// countdowns on phone screens (the pick screen), ticking between room updates
+setInterval(() => { const el = document.querySelector('#screen [data-left]'), r = app.room; if (!el || !r) return; el.textContent = Math.max(0, Math.ceil(r.left - (r.paused ? 0 : (performance.now() - (app.roomAt || 0)) / 1000))); }, 250);
 
 /* ---------- host controls ---------- */
 // the Android host app exposes Connect players and Stop to its own pages (the arena, and this frame inside it)
@@ -199,7 +213,9 @@ function nativeHost() { try { return window.DhakkaHost || (parent !== window && 
 function onTv() { try { const n = nativeHost(); return !!(n && n.tv && n.tv()); } catch (_) { return false; } }
 function hostDo(a, extra) { send(Object.assign({ t: 'host', a }, extra || {})); }
 function hostAct(a, b) {
-  if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostKey = ''; renderHost(); return; }
+  if (a === 'toggle') { app.hostOpen = !app.hostOpen; app.hostTab = ''; app.hostKey = ''; renderHost(); return; }
+  if (a === 'games') { app.hostOpen = true; app.hostTab = 'games'; app.hostKey = ''; renderHost(); return; }
+  if (a === 'lobby' && app.room && !['lobby', 'finished'].includes(app.room.phase) && !confirm('End this match and go back to the lobby? Scores are cleared.')) return;
   if (a === 'set') { const k = b.dataset.k, v = k === 'saboteurs' || k === 'powerups' ? b.dataset.v === '1' : Number(b.dataset.v); hostDo('settings', { settings: { [k]: v } }); return; }
   if (a === 'game') { const st = app.room.settings, id = b.dataset.id, games = st.games.includes(id) ? st.games.filter(g => g !== id) : st.games.concat(id); if (!games.length) { toast('Keep at least one game.'); return; } hostDo('settings', { settings: { games } }); return; }
   if (a === 'end') { if (confirm('End the match now and show the podium?')) hostDo('end'); return; }
@@ -218,10 +234,16 @@ function renderHost() {
   btn.hidden = !app.host; if (!app.host || !r) { panel.hidden = true; return; }
   const idle = ['lobby', 'finished'].includes(r.phase), s = r.settings;
   btn.classList.toggle('on', app.hostOpen);
-  const key = [app.hostOpen, r.phase, r.paused, s.rounds, s.saboteurs, s.talk, s.powerups, (s.games || []).join(), r.players.length].join('|');
+  const key = [app.hostOpen, app.hostTab, r.phase, r.paused, s.rounds, s.saboteurs, s.talk, s.powerups, (s.games || []).join(), r.players.length].join('|');
   if (key === app.hostKey) return; app.hostKey = key;
   panel.hidden = !app.hostOpen; if (!app.hostOpen) return;
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label, on]) => `<button data-act="h-set" data-k="${k}" data-v="${v}" aria-pressed="${on}">${label}</button>`).join('')}</div>`;
+  const gamesSeg = r.catalog ? `<div class="seg games">${r.catalog.map(g => `<button data-act="h-game" data-id="${g.id}" aria-pressed="${s.games.includes(g.id)}">${esc(g.name)}</button>`).join('')}</div>` : '';
+  if (app.hostTab === 'games' && idle) {
+    panel.innerHTML = `<div class="hc-head"><h2>Games this match</h2><button class="ghost small" data-act="h-toggle">Done</button></div>${gamesSeg}
+      ${seg('powerups', [[1, 'Power-ups on', s.powerups], [0, 'Off', !s.powerups]])}${seg('saboteurs', [[1, 'Chupa Rustam on', s.saboteurs], [0, 'Off', !s.saboteurs]])}`;
+    return;
+  }
   panel.innerHTML = `<div class="hc-head"><h2>Host controls</h2><button class="ghost small" data-act="h-toggle" aria-label="Close host controls">Close</button></div>` + (idle
     ? `<div class="row"><button class="cta" data-act="h-start" ${r.players.length < 3 ? 'disabled' : ''}>${r.phase === 'finished' ? 'Play again' : r.players.length < 3 ? `Need ${3 - r.players.length} more` : 'Start match'}</button><button class="ghost" data-act="h-addBot" ${r.players.length >= 10 ? 'disabled' : ''}>+ Add bot</button></div>
        ${seg('rounds', [3, 5, 7].map(n => [n, n + ' rounds', s.rounds === n]))}
@@ -229,7 +251,8 @@ function renderHost() {
        ${seg('talk', [30, 45, 60, 90].map(n => [n, n + 's talk', s.talk === n]))}
        ${seg('powerups', [[1, 'Power-ups on', s.powerups], [0, 'Off', !s.powerups]])}
        ${r.catalog ? `<p class="hc-label">Games this match</p><div class="seg games">${r.catalog.map(g => `<button data-act="h-game" data-id="${g.id}" aria-pressed="${s.games.includes(g.id)}">${esc(g.name)}</button>`).join('')}</div>` : ''}`
-    : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">Skip</button><button class="ghost" data-act="h-end">End match</button></div>`)
+    : `<div class="row"><button class="ghost" data-act="h-${r.paused ? 'resume' : 'pause'}">${r.paused ? 'Resume' : 'Pause'}</button><button class="ghost" data-act="h-skip">${r.phase === 'choose' ? 'Start now' : 'Skip'}</button></div>
+       <div class="row"><button class="ghost" data-act="h-end">End match</button><button class="ghost" data-act="h-lobby">Back to lobby</button></div><p class="fine">Games can be changed back in the lobby.</p>`)
     + (nativeHost() ? '<div class="row hc-native"><button class="ghost small" data-act="h-connect">Hotspot and QR</button><button class="ghost small" data-act="h-stophost">Stop hosting</button></div>' : '')
     + `<p class="hc-mode">${EMBED ? '<button class="ghost small" data-act="h-screen">Stop playing on this screen</button>' : onTv() ? 'The arena is on the TV. Stop casting to bring it back here.' : '<button class="ghost small" data-act="h-arena">Show the arena on this device</button>'}</p>`;
 }

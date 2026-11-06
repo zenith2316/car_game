@@ -60,7 +60,7 @@ check('non-host cannot start, host can', () => {
   e.message('d2', JSON.stringify({ t: 'host', a: 'start' }));
   assert.strictEqual(e.phase, 'lobby');
   e.message('disp', JSON.stringify({ t: 'host', a: 'start' }));
-  assert.strictEqual(e.phase, 'intro');
+  assert.strictEqual(e.phase, 'choose', 'starting opens the seven-second pick, then round 1');
 });
 
 check('reconnect with token reclaims the same seat', () => {
@@ -146,7 +146,7 @@ check('the host picks the games: the playlist uses only those, with the finale l
 
 check('akhada: punches drain health, a faint stops you, a fainted boxer flies when hit', () => {
   const e = room(6, ['akhada'], { powerups: false }); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
-  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  run(e, 17000); assert.strictEqual(e.phase, 'play');
   const [a, v] = e.roundPlayers(); a.bot = v.bot = false;
   Object.assign(a.b, { x: 700, y: 470, face: 0, vx: 0, vy: 0, dashCd: 0, stun: 0 }); Object.assign(v.b, { x: 745, y: 470, vx: 0, vy: 0, hp: 15, inv: 0, faint: 0 });
   e.strike(a, v, 1, 0, 1); assert(v.b.hp <= 5, 'damage applied'); e.strike(a, v, 1, 0, 1);
@@ -157,7 +157,7 @@ check('akhada: punches drain health, a faint stops you, a fainted boxer flies wh
 
 check('explosives: a stepped-on bomb blasts nearby players and a rocket detonates on a hit', () => {
   const e = room(7, ['patakha']); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
-  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  run(e, 17000); assert.strictEqual(e.phase, 'play');
   const ps = e.roundPlayers(); ps.forEach(p => { p.bot = false; p.inp.x = p.inp.y = 0; });
   e.ms.mines = []; e.addMine(800, 470, null, 0);
   Object.assign(ps[0].b, { x: 800, y: 470, vx: 0, vy: 0, z: 0 }); Object.assign(ps[1].b, { x: 880, y: 470, vx: 0, vy: 0, z: 0 });
@@ -169,7 +169,7 @@ check('explosives: a stepped-on bomb blasts nearby players and a rocket detonate
 
 check('chor police: a police dhakka turns a chor into police, and the round ends when nobody is free', () => {
   const e = room(8, ['chor'], { powerups: false }); e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
-  run(e, 10000); assert.strictEqual(e.phase, 'play');
+  run(e, 17000); assert.strictEqual(e.phase, 'play');
   const cop = e.roundPlayers().find(p => e.police.has(p.id)), chor = e.roundPlayers().find(p => !e.police.has(p.id));
   chor.b.inv = 0; e.strike(cop, chor, 1, 0, 1);
   assert(e.police.has(chor.id), 'caught'); assert.strictEqual(e.catches[cop.id], 1);
@@ -183,6 +183,15 @@ check('every new mode runs a full round with bots without errors', () => {
     assert(['roundEnd', 'panchayat', 'scores'].includes(e.phase), id + ' never ended');
     assert(e.result && Array.isArray(e.result.qualified), id + ' scored');
   }
+});
+
+check('starting a match gives everyone seven seconds to pick how they play, then round 1', () => {
+  const e = room(11, ['tapri']); e.open('p'); e.message('p', JSON.stringify({ t: 'hello', role: 'player' })); e.message('p', JSON.stringify({ t: 'join', name: 'Asha', color: 7, look: 1 }));
+  e.message('p', JSON.stringify({ t: 'view', phone: false }));
+  e.message('d', JSON.stringify({ t: 'host', a: 'start' }));
+  assert.strictEqual(e.phase, 'choose'); assert.strictEqual(e.round, 0);
+  assert.strictEqual(e.roomState().players.find(p => p.name === 'Asha').view, 'pad', 'the choice shows on the big screen');
+  run(e, 6500); assert.strictEqual(e.phase, 'choose'); run(e, 800); assert.strictEqual(e.phase, 'intro'); assert.strictEqual(e.round, 1);
 });
 
 check('saboteur traps respect role and cooldown', () => {

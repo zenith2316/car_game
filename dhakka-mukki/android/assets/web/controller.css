@@ -303,3 +303,21 @@ html:not(.embed) body.pov.live .status{position:fixed;top:calc(44px + env(safe-a
 body.pov:not(.live) .status{display:none}
 html.embed body.pov .lobby-top .row .ghost{font-size:12px;padding:2px 8px;min-height:34px}
 html.embed body.pov .lobby-top .row .cta{font-size:14px;padding:4px 10px}
+/* start of a match: Play on phone or Use phone as controller */
+.choose-phone{text-align:center;padding:14px}
+.choose-phone h1{font-family:var(--display);font-weight:400;font-size:26px;color:var(--rani);margin-bottom:8px}
+.pick{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;width:100%;margin-top:10px;padding:12px 14px;background:#FFFFFF;border:var(--edge);border-radius:20px;box-shadow:0 4px 0 var(--plum);color:var(--plum)}
+.pick i{grid-row:1 / 3;font-style:normal;font-size:34px}
+.pick b{font-size:19px}
+.pick span{font-size:13px;color:#6A4C8C;font-weight:500}
+.pick.on{background:#E2FFD6;box-shadow:0 4px 0 var(--plum),inset 0 0 0 3px #3DDC6A}
+.choose-phone .sub{margin-top:10px}
+.choose-phone .sub b{font-family:var(--display);font-weight:400;color:var(--rani);font-size:22px}
+.lobby-top .row{flex-wrap:wrap}
+.lobby-top .row .ghost{flex:1 1 auto;white-space:nowrap}
+html.embed .choose-phone{padding:8px 10px}
+html.embed .choose-phone h1{font-size:18px}
+html.embed .pick{padding:6px 10px;margin-top:6px}
+html.embed .pick i{font-size:24px}
+html.embed .pick b{font-size:15px}
+html.embed .pick span{display:none}
