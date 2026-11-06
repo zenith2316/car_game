@@ -1,0 +1,12 @@
+{
+  "name": "dhakka-mukki",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local multiplayer party game for 3 to 10 players: physics obstacle rounds with secret saboteurs. Phones are the controllers.",
+  "scripts": {
+    "dev": "node server/dev-host.js 8793",
+    "test": "node test/sim.test.js",
+    "e2e": "node test/e2e.js",
+    "apk": "bash build/build-apk.sh"
+  }
+}

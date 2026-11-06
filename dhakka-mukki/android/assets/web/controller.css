@@ -1,0 +1,323 @@
+/* Phone controller. Candy party-show styling to match the big screen. Thumb-first layout:
+   joystick anywhere on the left, two big squishy action buttons on the right. */
+:root{--plum:#2A0F4A;--paper:#FFF8EC;--edge:3px solid var(--plum)}
+.pad-body{min-height:100dvh;color:var(--plum);background:linear-gradient(180deg,#6EC3FF 0%,#B9E3FF 45%,#FFD9EA 100%) fixed;overscroll-behavior:none}
+.pad-body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(60px 34px at 12% 22%,#fff9 98%,transparent),radial-gradient(90px 44px at 20% 24%,#fff9 98%,transparent),radial-gradient(70px 36px at 82% 12%,#fff8 98%,transparent),radial-gradient(110px 50px at 90% 15%,#fff8 98%,transparent),radial-gradient(80px 40px at 70% 88%,#fff7 98%,transparent)}
+.bar{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 6px;position:relative;z-index:3}
+.bar .logo{font-size:24px;flex:none;color:#FFC21A;text-shadow:2px 0 0 var(--plum),-2px 0 0 var(--plum),0 2px 0 var(--plum),0 -2px 0 var(--plum),0 5px 0 var(--rani);transform:rotate(-3deg)}
+.bar .logo span{color:#FFFFFF}
+.me-chip{display:flex;align-items:center;gap:6px;margin-left:auto;background:var(--paper);border:var(--edge);border-radius:999px;padding:1px 12px 1px 3px;font-size:15px;max-width:55vw;box-shadow:0 3px 0 var(--plum)}
+.me-chip:empty{display:none}
+.me-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-chip b{color:var(--rani);font-family:var(--display);font-weight:400}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--haldi);flex:none;border:2px solid var(--plum)}
+.dot.on{background:#3DDC6A}.dot.off{background:var(--bad);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}
+.screen{padding:8px 16px 24px;max-width:560px;margin:0 auto;position:relative;z-index:2}
+.msg{text-align:center;padding:30px 18px;background:var(--paper);border:var(--edge);border-radius:28px;box-shadow:0 6px 0 var(--plum);margin-top:12px;animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+.msg h1{font-family:var(--display);font-weight:400;font-size:32px;color:var(--rani);line-height:1.1}
+.msg p{margin-top:10px;font-size:18px;color:#6A4C8C}
+.msg p b{color:var(--plum)}
+.sub{color:#6A4C8C;font-size:16px;font-weight:500}
+.spin{width:50px;height:50px;margin:0 auto 16px;border-radius:50%;border:6px solid #EDE3F7;border-top-color:var(--rani);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{from{transform:scale(.6) rotate(-3deg);opacity:0}to{transform:none;opacity:1}}
+.card{background:var(--paper);border:var(--edge);border-radius:28px;padding:18px;box-shadow:0 6px 0 var(--plum);animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+.form h1{font-family:var(--display);font-weight:400;font-size:36px;color:#FFFFFF;text-shadow:2px 0 0 var(--plum),-2px 0 0 var(--plum),0 2px 0 var(--plum),0 -2px 0 var(--plum),2px 2px 0 var(--plum),-2px 2px 0 var(--plum),0 6px 0 var(--rani)}
+.form label{display:block;margin:16px 0 6px;font-size:14px;color:var(--rani);text-transform:uppercase;letter-spacing:.12em}
+.form input{width:100%;font:inherit;font-size:20px;padding:12px 14px;border-radius:16px;border:var(--edge);background:#FFFFFF;color:var(--plum);box-shadow:inset 0 3px 0 #EDE3F7}
+.form input:focus{outline:3px solid var(--haldi);outline-offset:2px}
+.preview{display:block;width:100%;height:190px;margin:8px 0 -6px}
+.preview.small{width:84px;height:84px;margin:0;flex:none}
+body:not(.gl) .preview{display:none}
+body.gl .who .fallback{display:none}
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.swatches button{aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fffa 0 16%,transparent 17%),var(--c);border:var(--edge);box-shadow:inset 0 -6px 0 var(--d),0 3px 0 var(--plum);min-height:44px;transition:transform .12s}
+.swatches button[aria-checked="true"]{transform:scale(1.12);outline:4px solid #FFFFFF;outline-offset:2px}
+.swatches button:disabled{opacity:.2}
+.looks{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.looks button{display:flex;flex-direction:column;align-items:center;background:#FFFFFF;border:var(--edge);border-radius:16px;padding:4px 2px;font-size:12px;color:#6A4C8C;min-height:44px;box-shadow:0 3px 0 var(--plum)}
+.looks button img{width:48px;height:48px}
+.looks button[aria-checked="true"]{background:#FFE0EF;color:var(--plum);transform:translateY(-2px);box-shadow:0 5px 0 var(--rani)}
+.cta{display:block;width:100%;margin-top:18px;background:linear-gradient(180deg,#FFE066,#FFB800);color:var(--plum);font-size:22px;font-weight:800;padding:14px;border-radius:999px;border:var(--edge);box-shadow:0 6px 0 var(--plum);min-height:54px}
+.cta:active{transform:translateY(4px);box-shadow:0 2px 0 var(--plum)}
+.cta.on{background:linear-gradient(180deg,#9DF59A,#3DDC6A)}
+.ghost{background:#FFFFFF;border:var(--edge);border-radius:999px;padding:10px 16px;min-height:48px;font-size:17px;box-shadow:0 4px 0 var(--plum);color:var(--plum)}
+.ghost:active{transform:translateY(3px);box-shadow:0 1px 0 var(--plum)}
+.ghost.small{font-size:14px;color:#6A4C8C}
+.ghost.wide{width:100%;margin-top:14px}
+.row{display:flex;gap:10px;align-items:stretch;margin-top:12px}
+.row .cta{margin-top:0;flex:1}
+.fine{margin-top:12px;font-size:13px;color:#6A4C8C;text-align:center;font-weight:500}
+
+/* lobby header */
+.lobby-top .row{flex-wrap:wrap}
+.lobby-top .row .cta{flex:1 0 100%}
+.lobby-top .row .ghost{flex:1}
+.lobby-top{padding:10px 14px;background:var(--paper);border:var(--edge);border-radius:24px;box-shadow:0 5px 0 var(--plum)}
+.who{display:flex;gap:12px;align-items:center}
+.who h1{font-family:var(--display);font-weight:400;font-size:28px;color:var(--rani)}
+.who p{font-size:15px;color:#6A4C8C;font-weight:500}
+
+/* role reveal */
+.intro-phone{text-align:center}
+.kicker{display:inline-block;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:#FFFFFF;background:var(--rani);border:var(--edge);border-radius:10px;padding:3px 14px;margin:6px 0 14px;transform:rotate(-2deg)}
+.reveal-btn{width:100%;min-height:180px;border-radius:28px;border:3px dashed var(--plum);background:repeating-linear-gradient(-45deg,#FFF8EC 0 18px,#FFE9F4 18px 36px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:22px;color:var(--plum);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;animation:pulseb 1.4s ease-in-out infinite}
+@keyframes pulseb{50%{transform:scale(1.02)}}
+.reveal-btn small{font-size:14px;color:#6A4C8C;font-weight:500}
+.reveal-btn.held{display:none}
+.role{border-radius:28px;padding:20px;text-align:left;user-select:none;-webkit-user-select:none;color:#FFFFFF;border:var(--edge);box-shadow:0 6px 0 var(--plum);animation:pop .3s cubic-bezier(.2,1.6,.4,1) both}
+.role small{text-transform:uppercase;letter-spacing:.14em;font-size:13px;color:rgba(255,255,255,.85)}
+.role h2{font-family:var(--display);font-weight:400;font-size:44px;line-height:1.05;margin:4px 0 8px;text-shadow:2px 0 0 var(--plum),-2px 0 0 var(--plum),0 2px 0 var(--plum),0 -2px 0 var(--plum),0 5px 0 var(--plum)}
+.role p{font-size:17px}
+.role ul{margin:10px 0;display:grid;gap:6px;font-size:16px;font-weight:500}
+.role ul b{color:#FFE066}
+.role.racer{background:linear-gradient(160deg,#3DDC6A,#1E8A3E)}
+.role.sab{background:linear-gradient(160deg,#9B5CFF,#4A1FA8)}
+.role.king{background:linear-gradient(160deg,#FFC21A,#C87A00)}
+.role .partner{margin-top:8px;background:rgba(0,0,0,.22);border-radius:14px;padding:8px 12px}
+.role .warn{margin-top:8px;color:#FFE066}
+.role-peek{position:fixed;inset:auto 12px 12px;z-index:20;max-width:520px;margin:0 auto}
+
+/* voting */
+.vote{background:var(--paper);border:var(--edge);border-radius:28px;padding:16px;box-shadow:0 6px 0 var(--plum)}
+.vote h1{font-family:var(--display);font-weight:400;font-size:28px;color:var(--rani);text-align:center}
+.vote .sub{text-align:center;margin:6px 0 12px}
+.vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.vote-grid button{display:flex;align-items:center;gap:8px;background:#FFFFFF;border:var(--edge);border-left:10px solid var(--pc);border-radius:16px;padding:6px 10px;font-size:17px;min-height:62px;text-align:left;box-shadow:0 4px 0 var(--plum)}
+.vote-grid button span{overflow:hidden;text-overflow:ellipsis}
+.vote-grid button:active{background:#FFE0EF;transform:translateY(3px);box-shadow:0 1px 0 var(--plum)}
+
+/* pad */
+.pad{position:fixed;left:0;right:0;bottom:0;top:auto;height:min(62dvh,430px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto 1fr;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;padding:0 env(safe-area-inset-right,0) calc(70px + env(safe-area-inset-bottom,0px)) env(safe-area-inset-left,0);z-index:4;background:linear-gradient(180deg,transparent,rgba(42,15,74,.12))}
+.status{grid-column:1 / 3;justify-self:center;text-align:center;font-size:16px;padding:6px 16px;margin:4px 12px;color:var(--plum);background:var(--paper);border:var(--edge);border-radius:999px;box-shadow:0 3px 0 var(--plum)}
+.status:empty{display:none}
+.status.good{background:#E2FFD6}.status.bad{background:#FFE0E0}
+.stick{position:relative}
+.stick p{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:13px;color:#6A4C8C;pointer-events:none;font-weight:800}
+.stick .base{position:absolute;left:50%;top:50%;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;background:radial-gradient(circle,#FFFFFF66 0 52%,#FFFFFFAA 53% 100%);border:var(--edge);box-shadow:inset 0 6px 0 rgba(42,15,74,.12),0 4px 0 var(--plum);pointer-events:none}
+.stick .knob{position:absolute;left:50%;top:50%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FFB3DC,#E8177D 60%,#A40D55);border:var(--edge);box-shadow:0 6px 0 var(--plum);transition:transform .06s}
+.stick.active .knob{transition:none}
+.buttons{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:1fr;gap:10px;padding:10px 12px 12px;align-items:center;justify-items:center}
+.big{width:min(25vw,122px);aspect-ratio:1;border-radius:50%;font-size:20px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none;border:var(--edge);color:var(--plum);transition:transform .05s}
+.big span{pointer-events:none}
+.big.jump{background:radial-gradient(circle at 35% 28%,#FFF6B0,#FFC21A 55%,#E59400);box-shadow:0 9px 0 var(--plum);align-self:start}
+.big.dash{background:radial-gradient(circle at 35% 28%,#FFD0A8,#FF7A1A 55%,#D14E00);box-shadow:0 9px 0 var(--plum);align-self:end;color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
+.big.down{transform:translateY(7px) scale(.96);box-shadow:0 2px 0 var(--plum)}
+.extras{position:absolute;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;min-width:0}
+.ex{position:relative;flex:1 1 0;min-width:0;min-height:50px;border-radius:16px;background:#FFFFFF;border:var(--edge);font-size:16px;overflow:hidden;touch-action:none;box-shadow:0 4px 0 var(--plum);color:var(--plum)}
+.ex span{position:relative;z-index:1}
+.ex.trap{background:linear-gradient(180deg,#CDB0FF,#9B5CFF);color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
+.ex i{position:absolute;inset:0;background:conic-gradient(rgba(42,15,74,.6) var(--cd,0deg),transparent 0);pointer-events:none}
+.ex.down{transform:translateY(3px);box-shadow:0 1px 0 var(--plum)}
+.peek{position:fixed;top:calc(52px + env(safe-area-inset-top,0px));right:12px;font-size:13px;padding:6px 12px;border-radius:999px;background:var(--paper);border:var(--edge);color:var(--plum);z-index:5;touch-action:none;min-height:36px;box-shadow:0 3px 0 var(--plum)}
+body.playing .screen{padding-bottom:min(62dvh,430px)}
+.toast{position:fixed;left:12px;right:12px;top:calc(56px + env(safe-area-inset-top,0px));z-index:30;background:var(--bad);color:#fff;padding:10px 14px;border-radius:16px;text-align:center;font-size:16px;border:var(--edge)}
+/* hit feedback: the screen edge flashes when you get shoved, slip or fall */
+.ouch{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0}
+.ouch.show{animation:ouch .45s ease-out}
+.ouch.hit{box-shadow:inset 0 0 0 10px #FF4B4B,inset 0 0 60px #FF4B4B}
+.ouch.bonk{box-shadow:inset 0 0 0 8px #FFC21A,inset 0 0 40px #FFC21A}
+.ouch.slip{box-shadow:inset 0 0 0 10px #FFD93B,inset 0 0 60px #FFD93B}
+.ouch.fall{box-shadow:inset 0 0 0 14px #9B5CFF,inset 0 0 80px #9B5CFF}
+@keyframes ouch{0%{opacity:1}100%{opacity:0}}
+@media (orientation:landscape) and (max-height:520px){
+ .bar{padding-top:4px;padding-bottom:2px}
+ .pad{height:calc(100dvh - 160px)}
+ body.live .pad{height:calc(100dvh - 44px)}
+ body.live .screen{display:none}
+ body.playing .screen{padding-bottom:0}
+ .lobby-top{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:6px 12px}
+ .lobby-top .row{margin-top:0;flex-wrap:nowrap}
+ .lobby-top .row .cta{flex:0 0 auto}
+ .lobby-top .row button{white-space:nowrap;padding:8px 14px;min-height:44px}
+ .lobby-top .row .cta{font-size:18px}
+ .lobby-top .who img,.preview.small{width:56px;height:56px}
+ .big{width:min(27dvh,140px)}
+}
+/* rendered art */
+.role{position:relative;overflow:hidden}
+.role .role-art{float:right;width:132px;height:132px;margin:-12px -10px 0 6px;filter:drop-shadow(0 6px 0 rgba(42,15,74,.35))}
+.big{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.big img{width:62%;height:auto;margin-top:-12%;pointer-events:none;filter:drop-shadow(0 3px 0 rgba(42,15,74,.25))}
+.big span{font-size:17px;margin-top:-8%}
+.ex img{position:relative;z-index:1;width:30px;height:30px;vertical-align:middle;margin-right:4px;pointer-events:none}
+/* host controls: the host can play from a phone-style controller and still run the room */
+.host-btn{flex:none;font:inherit;font-size:14px;font-weight:800;padding:4px 14px;min-height:36px;border-radius:999px;background:linear-gradient(180deg,#FFE066,#FFB800);border:var(--edge);color:var(--plum);box-shadow:0 3px 0 var(--plum)}
+.host-btn.on{background:var(--rani);color:#FFFFFF}
+.me-chip+.host-btn{margin-left:0}
+.bar .me-chip:empty+.host-btn{margin-left:auto}
+.hostctl{position:fixed;z-index:26;top:calc(56px + env(safe-area-inset-top,0px));left:12px;right:12px;max-width:520px;margin:0 auto;max-height:calc(100dvh - 72px);overflow:auto;background:var(--paper);border:var(--edge);border-radius:24px;padding:12px 14px 14px;box-shadow:0 6px 0 var(--plum);animation:pop .3s cubic-bezier(.2,1.6,.4,1) both}
+.hc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.hc-head h2{font-family:var(--display);font-weight:400;font-size:24px;color:var(--rani)}
+.hc-head .ghost{min-height:38px;padding:4px 14px}
+.hostctl .seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hostctl .seg button{flex:1 0 auto;font:inherit;font-size:15px;padding:8px 10px;min-height:44px;border-radius:999px;background:#FFFFFF;border:var(--edge);color:var(--plum);box-shadow:0 3px 0 var(--plum)}
+.hostctl .seg button[aria-pressed="true"]{background:var(--rani);color:#FFFFFF}
+.hostctl .row .ghost{flex:1}
+.hostctl .row .cta{flex:1.4}
+.hc-mode{margin-top:12px;text-align:center}
+.cta:disabled{opacity:.55}
+
+/* ---------- embedded over the arena on the host screen ----------
+   The host device is often a phone in landscape (about 800 x 320 CSS px), so everything here is sized from the
+   screen height: a slim top bar, a compact menu card at the top right, and the pad in the bottom corners. */
+html.embed{--top:clamp(34px,11dvh,52px);--sb:clamp(92px,30dvh,150px);--bb:clamp(62px,21dvh,112px);--padh:min(50dvh,330px)}
+html.embed,html.embed .pad-body{background:transparent!important;min-height:100dvh}
+html.embed .pad-body::before{display:none}
+html.embed .bar{position:fixed;top:0;right:0;left:auto;gap:6px;padding:calc(4px + env(safe-area-inset-top,0px)) 8px 0;z-index:6}
+html.embed .bar .logo{display:none}
+html.embed .me-chip{font-size:13px;padding:0 10px 0 2px;box-shadow:0 2px 0 var(--plum);max-width:30vw}
+html.embed .me-chip img{width:22px;height:22px}
+html.embed .host-btn{font-size:13px;min-height:28px;padding:2px 12px;box-shadow:0 2px 0 var(--plum)}
+html.embed .dot{width:12px;height:12px}
+/* menu card: joining, lobby, role, votes, scores */
+html.embed .screen{position:fixed;top:calc(var(--top) + 4px);right:8px;left:auto;width:min(360px,46vw);max-height:calc(100dvh - var(--top) - 12px);overflow:auto;margin:0;padding:0 2px 6px;z-index:5;-webkit-overflow-scrolling:touch}
+html.embed body.playing .screen{max-height:calc(100dvh - var(--top) - var(--padh) - 8px);padding-bottom:0}
+html.embed body.live .screen{display:none}
+html.embed .msg,html.embed .card,html.embed .lobby-top,html.embed .vote{margin-top:0;border-radius:18px;box-shadow:0 4px 0 var(--plum);animation:none}
+html.embed .msg{padding:10px 12px}
+html.embed .msg h1{font-size:20px}
+html.embed .msg p{font-size:14px;margin-top:4px}
+html.embed .card{padding:10px 12px}
+html.embed .form h1{font-size:22px}
+html.embed .form .sub,html.embed .form .fine{font-size:13px}
+html.embed .form label{margin:8px 0 4px;font-size:12px}
+html.embed .form input{font-size:16px;padding:6px 10px;border-radius:12px}
+html.embed .swatches{gap:6px}
+html.embed .swatches button{min-height:30px}
+html.embed .looks{gap:4px}
+html.embed .looks button{min-height:0;padding:2px;font-size:10px;border-radius:10px}
+html.embed .looks button img{width:32px;height:32px}
+html.embed .cta{font-size:16px;padding:6px 12px;min-height:40px;margin-top:10px;box-shadow:0 4px 0 var(--plum)}
+html.embed .ghost{font-size:14px;padding:4px 12px;min-height:38px;box-shadow:0 3px 0 var(--plum)}
+/* lobby: one compact strip with the host's Start button always in view */
+html.embed .lobby-top{display:flex;flex-direction:column;gap:6px;padding:8px 10px}
+html.embed .lobby-top .who{gap:8px}
+html.embed .lobby-top .who img{width:36px;height:36px}
+html.embed .lobby-top .who h1{font-size:18px;line-height:1.1}
+html.embed .lobby-top .who p{font-size:12px;line-height:1.25}
+html.embed .lobby-top .row{margin-top:0;flex-wrap:nowrap;gap:6px}
+html.embed .lobby-top .row .cta{flex:1 1 auto;margin:0;white-space:nowrap}
+html.embed .lobby-top .row .ghost{flex:0 0 auto;white-space:nowrap}
+/* role reveal and votes */
+html.embed .kicker{font-size:11px;margin:0 0 6px;padding:2px 10px}
+html.embed .reveal-btn{min-height:96px;font-size:16px;border-radius:18px}
+html.embed .role{padding:12px;border-radius:18px}
+html.embed .role h2{font-size:28px}
+html.embed .role p,html.embed .role ul{font-size:13px}
+html.embed .role .role-art{width:72px;height:72px;margin:-6px -4px 0 4px}
+html.embed .vote{padding:10px}
+html.embed .vote h1{font-size:20px}
+html.embed .vote .sub{font-size:13px;margin:4px 0 8px}
+html.embed .vote-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+html.embed .vote-grid button{min-height:44px;font-size:14px;padding:4px 8px}
+html.embed .vote-grid button img{width:32px;height:32px}
+html.embed .ghost.wide{margin-top:8px}
+/* pad: joystick bottom left, Dhakka and Jump bottom right, emotes or traps between them */
+html.embed .pad{height:var(--padh);background:none;padding:0;grid-template-rows:1fr}
+html.embed .status{display:none}
+html.embed .stick{max-width:42vw}
+html.embed .stick p{display:none}
+html.embed .stick .base{width:var(--sb);height:var(--sb);margin:calc(var(--sb) / -2) 0 0 calc(var(--sb) / -2);border-width:3px}
+html.embed .stick .knob{width:calc(var(--sb) / 2);height:calc(var(--sb) / 2);margin:calc(var(--sb) / -4) 0 0 calc(var(--sb) / -4)}
+html.embed .buttons{justify-self:end;align-self:end;width:auto;display:flex;gap:clamp(8px,3vw,22px);align-items:flex-end;padding:0 clamp(10px,3vw,28px) clamp(8px,4dvh,22px) 0}
+html.embed .big{width:var(--bb)}
+html.embed .big.jump{margin-bottom:calc(var(--bb) * .45)}
+html.embed .big.dash{align-self:auto}
+html.embed .big span{font-size:clamp(12px,4dvh,16px)}
+html.embed .big.jump,html.embed .big.dash{box-shadow:0 5px 0 var(--plum)}
+html.embed .extras{left:50%;right:auto;transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom,0px));width:min(330px,34vw);gap:6px}
+html.embed .ex{min-height:32px;font-size:13px;border-radius:12px;box-shadow:0 3px 0 var(--plum)}
+html.embed .ex img{width:20px;height:20px}
+html.embed .peek{top:auto;bottom:calc(var(--padh) - 6px);right:8px;font-size:12px;min-height:28px;padding:2px 10px}
+html.embed .role-peek{left:auto;right:8px;top:calc(var(--top) + 4px);bottom:auto;width:min(360px,46vw)}
+html.embed .toast{left:auto;right:8px;top:calc(var(--top) + 4px);width:min(360px,46vw);font-size:14px;padding:6px 10px}
+/* host controls: main action first so it is never scrolled out of view */
+html.embed .hostctl{left:auto;right:8px;top:calc(var(--top) + 4px);width:min(380px,48vw);max-width:none;max-height:calc(100dvh - var(--top) - 12px);padding:8px 10px 10px;border-radius:18px;animation:none}
+html.embed .hc-head h2{font-size:18px}
+html.embed .hc-head .ghost{min-height:30px;font-size:13px}
+html.embed .hostctl .seg{margin-top:6px;gap:4px}
+html.embed .hostctl .seg button{font-size:12px;min-height:32px;padding:4px 8px;box-shadow:0 2px 0 var(--plum)}
+html.embed .hostctl .row{margin-top:6px}
+html.embed .hc-mode{margin-top:8px}
+@media (orientation:landscape) and (max-height:520px){
+ html.embed .pad,html.embed body.live .pad{height:var(--padh)}
+ html.embed .big{width:var(--bb)}
+}
+html.embed .swatches{grid-template-columns:repeat(10,1fr);gap:4px}
+html.embed .swatches button{min-height:0;box-shadow:inset 0 -3px 0 var(--d),0 2px 0 var(--plum);border-width:2px}
+html.embed .swatches button[aria-checked="true"]{outline-width:3px}
+html.embed .lobby-top .who p{display:none}
+/* decluttered embed: small pills instead of cards while the arena is the focus */
+html.embed .mini-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+html.embed .reveal-btn.mini{width:auto;min-height:0;padding:6px 14px;border-radius:999px;border:2px dashed var(--plum);font-size:13px;font-weight:800;animation:pulseb 1.4s ease-in-out infinite;box-shadow:0 2px 0 var(--plum)}
+html.embed .reveal-btn.mini.held{display:inline-flex;visibility:hidden}
+html.embed #role-slot{width:min(340px,44vw)}
+html.embed .pill{background:var(--paper);border:2px solid var(--plum);border-radius:999px;padding:4px 12px;font-size:13px;box-shadow:0 2px 0 var(--plum)}
+html.embed .vote.mini{width:min(250px,34vw);margin-left:auto;padding:6px 8px;border-radius:14px;box-shadow:0 3px 0 var(--plum)}
+html.embed .vote.mini h1{font-size:15px;margin-bottom:4px}
+html.embed .vote.mini .vote-grid{grid-template-columns:1fr 1fr;gap:4px}
+html.embed .vote.mini .vote-grid button{min-height:30px;padding:2px 6px;font-size:12px;border-width:2px;border-left-width:6px;border-radius:10px;gap:4px;box-shadow:0 2px 0 var(--plum)}
+html.embed .vote.mini .vote-grid button img{width:22px;height:22px}
+html.embed .vote.mini .vote-grid .skip{justify-content:center;border-left-width:2px;background:#EDE3F7}
+html.embed .screen:has(.vote.mini),html.embed .screen:has(.mini-wrap){width:auto;max-width:min(360px,46vw)}
+html.embed .hc-native{justify-content:center}
+html.embed .hc-native .ghost{flex:0 1 auto;min-height:30px;font-size:12px}
+/* during a round only the pad, the Host button and the connection dot stay */
+html.embed body.live .me-chip{display:none}
+html.embed .mini-row{margin-top:0;gap:6px}
+html.embed .mini-row .cta,html.embed .mini-row .ghost{flex:0 0 auto;margin:0;min-height:32px;font-size:13px;padding:2px 12px}
+/* ---------- your own 3D view behind the pad ---------- */
+.pov-canvas{position:fixed;inset:0;width:100vw;height:100dvh;z-index:0;display:block;touch-action:none}
+.pov-canvas[hidden]{display:none}
+body.pov{background:#1C0B33}
+body.pov::before{display:none}
+body.pov .pad{background:none}
+html:not(.embed) body.pov .bar{position:fixed;top:0;left:0;right:0;z-index:6;padding-top:calc(4px + env(safe-area-inset-top,0px))}
+html:not(.embed) body.pov .bar .logo{font-size:18px}
+html:not(.embed) body.pov .screen{position:relative;z-index:5;padding-top:calc(46px + env(safe-area-inset-top,0px))}
+body.pov.live .screen{display:none}
+body.pov .status{font-size:14px;padding:4px 12px;margin:4px 12px}
+body.pov .stick .base{background:radial-gradient(circle,#FFFFFF33 0 52%,#FFFFFF66 53% 100%)}
+body.pov .stick p{color:#FFFFFF;text-shadow:0 2px 0 var(--plum)}
+/* landscape with your own view uses the html.embed corner layout (toggled by controller.js) */
+html.embed body.pov.live .status{display:block;position:fixed;top:calc(var(--top) + 2px);left:50%;transform:translateX(-50%);margin:0;white-space:nowrap;font-size:13px;z-index:6}
+html.embed body.pov .status:empty{display:none}
+/* ---------- fire button (only while you hold rockets) ---------- */
+.big.fire{position:absolute;left:calc(50% + 6px);top:34px;width:min(19vw,92px);background:radial-gradient(circle at 35% 28%,#FFB3DC,#E8177D 55%,#A40D55);box-shadow:0 7px 0 var(--plum);color:#FFFFFF;text-shadow:0 2px 0 var(--plum);font-size:15px;z-index:2;animation:pulseb 1s ease-in-out infinite}
+.big.fire[hidden]{display:none}
+.big.fire .rk{font-size:26px;line-height:1;text-shadow:none}
+.big.fire b{position:absolute;right:-4px;top:-4px;min-width:24px;height:24px;border-radius:12px;background:#FFE36A;color:var(--plum);border:2px solid var(--plum);font-size:14px;line-height:20px;text-shadow:none}
+html.embed .big.fire{position:relative;left:auto;top:auto;width:calc(var(--bb) * .8);margin-bottom:calc(var(--bb) * .9)}
+/* ---------- boxing health and the new roles ---------- */
+.status .hp{display:inline-block;vertical-align:middle;width:84px;height:12px;border-radius:6px;background:#2A0F4A;border:2px solid var(--plum);overflow:hidden;margin-right:6px}
+.status .hp b{display:block;height:100%;background:linear-gradient(90deg,#FF4B4B,#FFC21A 40%,#3DDC6A);transition:width .25s}
+.role.police{background:linear-gradient(160deg,#3D8BFF,#1B3FA8)}
+.role.chor{background:linear-gradient(160deg,#4A4F5C,#1C1F28)}
+.role.boxer{background:linear-gradient(160deg,#FF6B3D,#B3261E)}
+/* ---------- host: games for this match ---------- */
+.hc-label{margin-top:10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--rani);font-weight:800}
+.hostctl .seg.games button{flex:1 0 40%}
+html:not(.embed) body.pov.live .status{position:fixed;top:calc(44px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);margin:0;white-space:nowrap;z-index:6}
+body.pov:not(.live) .status{display:none}
+html.embed body.pov .lobby-top .row .ghost{font-size:12px;padding:2px 8px;min-height:34px}
+html.embed body.pov .lobby-top .row .cta{font-size:14px;padding:4px 10px}
+/* start of a match: Play on phone or Use phone as controller */
+.choose-phone{text-align:center;padding:14px}
+.choose-phone h1{font-family:var(--display);font-weight:400;font-size:26px;color:var(--rani);margin-bottom:8px}
+.pick{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;width:100%;margin-top:10px;padding:12px 14px;background:#FFFFFF;border:var(--edge);border-radius:20px;box-shadow:0 4px 0 var(--plum);color:var(--plum)}
+.pick i{grid-row:1 / 3;font-style:normal;font-size:34px}
+.pick b{font-size:19px}
+.pick span{font-size:13px;color:#6A4C8C;font-weight:500}
+.pick.on{background:#E2FFD6;box-shadow:0 4px 0 var(--plum),inset 0 0 0 3px #3DDC6A}
+.choose-phone .sub{margin-top:10px}
+.choose-phone .sub b{font-family:var(--display);font-weight:400;color:var(--rani);font-size:22px}
+.lobby-top .row{flex-wrap:wrap}
+.lobby-top .row .ghost{flex:1 1 auto;white-space:nowrap}
+html.embed .choose-phone{padding:8px 10px}
+html.embed .choose-phone h1{font-size:18px}
+html.embed .pick{padding:6px 10px;margin-top:6px}
+html.embed .pick i{font-size:24px}
+html.embed .pick b{font-size:15px}
+html.embed .pick span{display:none}

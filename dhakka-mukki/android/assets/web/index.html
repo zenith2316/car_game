@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#6EC3FF"><title>Dhakka Mukki</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/shrikhand-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/baloo2-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/controller.css">
+<script defer src="/engine.js"></script><script defer src="/art.js"></script><script defer src="/controller.js"></script><script type="module" src="/controller3d.js"></script>
+</head>
+<body class="pad-body">
+<canvas id="gl" class="pov-canvas" aria-label="Your view of the arena" hidden></canvas>
+<div id="ouch" class="ouch" aria-hidden="true"></div>
+<header class="bar"><span class="logo">Dhakka <span>Mukki</span></span><span id="me-chip" class="me-chip"></span><button id="host-btn" class="host-btn" type="button" data-act="h-toggle" hidden>Host</button><span id="conn" class="dot" role="status" aria-label="Connecting"></span></header>
+<main id="screen" class="screen"><section class="msg"><div class="spin" aria-hidden="true"></div><h1>Finding the mela</h1><p>Stay on the host's Wi-Fi.</p></section></main>
+<section id="pad" class="pad" hidden aria-label="Controller">
+ <div id="status" class="status" role="status" aria-live="polite"></div>
+ <div id="stick" class="stick" aria-label="Joystick: drag anywhere on the left side"><div class="base"><div class="knob"></div></div><p>Drag to run</p></div>
+ <div class="buttons">
+  <button id="b-dash" class="big dash" type="button"><img src="/assets/ui/icon_dhakka.webp" alt=""><span>Dhakka</span></button>
+  <button id="b-jump" class="big jump" type="button"><img src="/assets/ui/icon_jump.webp" alt=""><span>Jump</span></button>
+  <button id="b-fire" class="big fire" type="button" hidden><span class="rk" aria-hidden="true">🚀</span><span>Fire</span><b id="ammo">0</b></button>
+  <div id="extras" class="extras"></div>
+ </div>
+ <button id="peek" class="peek" type="button" hidden>Hold: my role</button>
+</section>
+<div id="role-peek" class="role-peek" hidden></div>
+<section id="hostctl" class="hostctl" hidden aria-label="Host controls"></section>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body></html>
